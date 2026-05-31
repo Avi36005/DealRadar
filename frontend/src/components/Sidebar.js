@@ -16,11 +16,13 @@ import {
   Settings,
   HelpCircle,
   ChevronLeft,
+  Radar,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
   { href: '/dashboard/search',         label: 'Search',         icon: Search      },
   { href: '/dashboard/results',        label: 'Results',        icon: BarChart2   },
+  { href: '/dashboard/trend-radar',    label: 'Demand Radar',   icon: Radar, badge: 'NEW' },
   { href: '/dashboard/ai-insights',    label: 'AI Insights',    icon: Sparkles    },
   { href: '/dashboard/watchlist',      label: 'Watch List',     icon: Eye         },
   { href: '/dashboard/unit-economics', label: 'Unit Economics', icon: DollarSign  },
@@ -83,7 +85,7 @@ export default function Sidebar() {
 
       {/* ── Main nav ── */}
       <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-0.5">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+        {NAV_ITEMS.map(({ href, label, icon: Icon, badge }) => {
           const active = isActive(href);
           return (
             <Link key={href} href={href}>
@@ -105,9 +107,14 @@ export default function Sidebar() {
                       animate={{ opacity: 1, width: 'auto' }}
                       exit={{ opacity: 0, width: 0 }}
                       transition={{ duration: 0.2 }}
-                      className="text-sm font-medium whitespace-nowrap overflow-hidden"
+                      className="text-sm font-medium whitespace-nowrap overflow-hidden flex items-center gap-2"
                     >
                       {label}
+                      {badge && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#DC2626] text-white leading-none">
+                          {badge}
+                        </span>
+                      )}
                     </motion.span>
                   )}
                 </AnimatePresence>

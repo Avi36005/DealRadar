@@ -25,6 +25,46 @@ const AI_KEYS = {
   openAIKey: process.env.OPENAI_API_KEY,
 };
 
+// --- Helpers ---
+
+// Use Groq to estimate realistic product-specific prices when Wire API fails
+async function getAIPriceEstimate(query, sourceLabel, currency, groqKey) {
+  if (!groqKey) return null;
+  try {
+    const currencyNote = currency === 'INR'
+      ? 'Indian Rupees (INR). Give realistic Indian market price.'
+      : 'US Dollars (USD). Give realistic US market price.';
+    const prompt = `You are a product pricing database. Return a realistic price for "${query}" sold on ${sourceLabel}.
+Currency: ${currencyNote}
+Return ONLY valid JSON with this exact shape (no explanation):
+{"price": <number>, "stock": "<In Stock|Low Stock|Out of Stock>", "eta": "<e.g. 2 Days>"}
+Be specific to the product. If the product is unlikely to be sold on this retailer, still give a plausible estimate.`;
+
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${groqKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 80,
+        temperature: 0.2,
+        response_format: { type: "json_object" }
+      }),
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) return null;
+    const parsed = JSON.parse(content);
+    if (!parsed.price || isNaN(parseFloat(parsed.price))) return null;
+    return parsed;
+  } catch (err) {
+    console.error(`AI price estimate failed for ${sourceLabel}:`, err.message);
+    return null;
+  }
+}
+
 // --- API ROUTES ---
 
 // 1. POST /api/search - Streams results back using Server-Sent Events (SSE)
@@ -48,13 +88,13 @@ app.post("/api/search", async (req, res) => {
 
   // 7 Wire sources definitions
   const sources = [
-    { name: "amazon", label: "Amazon US", action: "search products", fallbackPrice: 1242.00, stock: "In Stock", eta: "2 Days", rating: 4.9, reviewCount: 1540 },
-    { name: "flipkart", label: "Flipkart", action: "search products", fallbackPrice: 1299.99, stock: "In Stock", eta: "3-5 Days", rating: 4.7, reviewCount: 840 },
-    { name: "walmart", label: "Walmart US", action: "search products", fallbackPrice: 1320.00, stock: "In Stock", eta: "3 Days", rating: 4.6, reviewCount: 310 },
-    { name: "costco", label: "Costco US", action: "search products", fallbackPrice: 1349.90, stock: "Low Stock", eta: "5 Days", rating: 4.4, reviewCount: 120 },
-    { name: "indiamart", label: "IndiaMART", action: "search products", fallbackPrice: 1200.00, stock: "In Stock", eta: "7 Days", rating: 4.5, reviewCount: 450 },
-    { name: "ebay", label: "eBay US", action: "search listings", fallbackPrice: 1290.00, stock: "In Stock", eta: "4 Days", rating: 4.8, reviewCount: 610 },
-    { name: "bigbasket", label: "BigBasket", action: "search products", fallbackPrice: 1380.00, stock: "Out of Stock", eta: "9 Days", rating: 4.2, reviewCount: 90 }
+    { name: "amazon", label: "Amazon US", action: "search products", currency: "USD", fallbackPrice: 1242.00, stock: "In Stock", eta: "2 Days", rating: 4.9, reviewCount: 1540 },
+    { name: "flipkart", label: "Flipkart", action: "search products", currency: "INR", fallbackPrice: 108500, stock: "In Stock", eta: "3-5 Days", rating: 4.7, reviewCount: 840 },
+    { name: "walmart", label: "Walmart US", action: "search products", currency: "USD", fallbackPrice: 1320.00, stock: "In Stock", eta: "3 Days", rating: 4.6, reviewCount: 310 },
+    { name: "costco", label: "Costco US", action: "search products", currency: "USD", fallbackPrice: 1349.90, stock: "Low Stock", eta: "5 Days", rating: 4.4, reviewCount: 120 },
+    { name: "indiamart", label: "IndiaMART", action: "search products", currency: "INR", fallbackPrice: 100200, stock: "In Stock", eta: "7 Days", rating: 4.5, reviewCount: 450 },
+    { name: "ebay", label: "eBay US", action: "search listings", currency: "USD", fallbackPrice: 1290.00, stock: "In Stock", eta: "4 Days", rating: 4.8, reviewCount: 610 },
+    { name: "bigbasket", label: "BigBasket", action: "search products", currency: "INR", fallbackPrice: 115200, stock: "Out of Stock", eta: "9 Days", rating: 4.2, reviewCount: 90 }
   ];
 
   const settledResults = [];
@@ -90,7 +130,7 @@ app.post("/api/search", async (req, res) => {
           resultData = {
             source: src.label,
             price: parseFloat(data.price),
-            currency: data.currency || "USD",
+            currency: data.currency || src.currency,
             stock: data.stock || "In Stock",
             eta: data.eta || src.eta,
             rating: parseFloat(data.rating) || src.rating,
@@ -103,14 +143,15 @@ app.post("/api/search", async (req, res) => {
       }
     }
 
-    // Fallback mock values
+    // Fallback: try AI price estimate first, then hardcoded defaults
     if (!resultData) {
+      const aiEstimate = await getAIPriceEstimate(query, src.label, src.currency, process.env.GROQ_API_KEY);
       resultData = {
         source: src.label,
-        price: src.fallbackPrice,
-        currency: "USD",
-        stock: src.stock,
-        eta: src.eta,
+        price: aiEstimate?.price ? parseFloat(aiEstimate.price) : src.fallbackPrice,
+        currency: src.currency,
+        stock: aiEstimate?.stock || src.stock,
+        eta: aiEstimate?.eta || src.eta,
         rating: src.rating,
         reviewCount: src.reviewCount,
         url: `https://www.google.com/search?q=${encodeURIComponent(src.label + " " + query)}`
@@ -119,17 +160,20 @@ app.post("/api/search", async (req, res) => {
 
     settledResults.push(resultData);
 
+    // Normalize prices to USD for fair comparison across currencies
+    const toUSD = (price, currency) => currency === 'INR' ? price / 83.5 : price;
+
     // Calculate running median for AI Score calculation
-    const prices = settledResults.map(r => r.price).filter(p => p != null);
+    const prices = settledResults.map(r => toUSD(r.price, r.currency)).filter(p => p != null);
     prices.sort((a, b) => a - b);
-    const median = prices.length > 0 
-      ? (prices.length % 2 === 0 
-          ? (prices[prices.length / 2 - 1] + prices[prices.length / 2]) / 2 
+    const median = prices.length > 0
+      ? (prices.length % 2 === 0
+          ? (prices[prices.length / 2 - 1] + prices[prices.length / 2]) / 2
           : prices[Math.floor(prices.length / 2)])
       : 1000;
 
     // AI Score calculation
-    const price = resultData.price;
+    const price = toUSD(resultData.price, resultData.currency);
     const pricePenalty = price > median ? Math.min(40, ((price - median) / median) * 50) : 0;
     const stockPenalty = resultData.stock === "Low Stock" ? 10 : (resultData.stock === "Out of Stock" ? 30 : 0);
     const etaDays = parseInt(resultData.eta) || 3;
@@ -418,6 +462,118 @@ app.post("/api/chat", async (req, res) => {
   return res.status(200).json({
     reply:
       "I'm having trouble connecting right now. Try searching for a product to see live prices from all 7 suppliers!",
+  });
+});
+
+// POST /api/ai/trend-shock — Demand Shock Radar
+// Detects if a product is about to experience a demand spike before prices adjust
+app.post("/api/ai/trend-shock", async (req, res) => {
+  const { productName, currentPrices } = req.body;
+
+  if (!productName) {
+    return res.status(400).json({ error: "productName is required" });
+  }
+
+  const priceContext = Array.isArray(currentPrices) && currentPrices.length > 0
+    ? `\nCurrent prices across sources:\n${JSON.stringify(currentPrices, null, 2)}`
+    : "";
+
+  const systemPrompt = `You are a demand intelligence analyst specializing in detecting demand shocks before retail prices adjust. Analyze market signals, search trends, news events, supply chain data, and social sentiment to predict upcoming demand spikes. Return ONLY valid JSON.`;
+
+  const userPrompt = `Analyze potential demand shocks for: "${productName}"${priceContext}
+
+Return ONLY valid JSON with this exact shape:
+{
+  "trendScore": <number 0-100, higher = stronger demand signal>,
+  "riskLevel": <"LOW"|"MEDIUM"|"HIGH"|"CRITICAL">,
+  "predictedSpikePercent": <number, estimated % price increase during spike>,
+  "buyWindowHours": <number, hours before price spike hits; 0 if already spiking>,
+  "signals": [<3-4 strings describing what is driving demand, e.g. "Viral TikTok trend detected", "Supply chain disruption in key region">],
+  "reasoning": "<2-3 sentence explanation of the demand shock risk and its likely cause>",
+  "recommendation": <"BUY_NOW"|"BUY_SOON"|"MONITOR"|"WAIT">
+}`;
+
+  const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+
+  // ── Try Gemini first ──
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const geminiUrl = `${GEMINI_BASE}/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+      const geminiRes = await fetch(geminiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
+          generationConfig: { responseMimeType: "application/json" },
+        }),
+        signal: AbortSignal.timeout(20000),
+      });
+
+      if (geminiRes.ok) {
+        const geminiData = await geminiRes.json();
+        const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          const clean = text.replace(/^```json\s*/i, "").replace(/```\s*$/, "").trim();
+          const parsed = JSON.parse(clean);
+          return res.status(200).json(parsed);
+        }
+      } else {
+        console.error("Gemini trend-shock non-OK status:", geminiRes.status);
+      }
+    } catch (err) {
+      console.error("Gemini trend-shock error:", err.message);
+    }
+  }
+
+  // ── Fallback: OpenAI gpt-4o ──
+  if (process.env.OPENAI_API_KEY) {
+    try {
+      const openAIRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+        }),
+        signal: AbortSignal.timeout(25000),
+      });
+
+      if (openAIRes.ok) {
+        const openAIData = await openAIRes.json();
+        const text = openAIData?.choices?.[0]?.message?.content;
+        if (text) {
+          const clean = text.replace(/^```json\s*/i, "").replace(/```\s*$/, "").trim();
+          const parsed = JSON.parse(clean);
+          return res.status(200).json(parsed);
+        }
+      } else {
+        console.error("OpenAI trend-shock non-OK status:", openAIRes.status);
+      }
+    } catch (err) {
+      console.error("OpenAI trend-shock error:", err.message);
+    }
+  }
+
+  // ── Both failed — return mock response ──
+  return res.status(200).json({
+    trendScore: 45,
+    riskLevel: "LOW",
+    predictedSpikePercent: 8,
+    buyWindowHours: 72,
+    signals: [
+      "No strong demand signals detected at this time",
+      "Market appears stable across major retail channels",
+      "No viral social media activity detected for this product",
+    ],
+    reasoning: `Demand analysis for "${productName}" returned baseline results. No immediate shock signals were detected. Continue monitoring for changes in search trends or supply chain disruptions.`,
+    recommendation: "MONITOR",
   });
 });
 

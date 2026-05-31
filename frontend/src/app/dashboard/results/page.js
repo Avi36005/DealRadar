@@ -18,6 +18,37 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+// ── Currency utilities ────────────────────────────────────────────────────────
+const USD_TO_INR = 83.5;
+
+const SOURCE_CURRENCY = {
+  'Flipkart': 'INR', 'IndiaMART': 'INR', 'BigBasket': 'INR',
+};
+
+function getCurrency(row) {
+  if (row?.currency) return row.currency;
+  return SOURCE_CURRENCY[row?.source] || 'USD';
+}
+
+function formatPrice(price, currency) {
+  if (!price && price !== 0) return '—';
+  if (currency === 'INR') return '₹' + Math.round(price).toLocaleString('en-IN');
+  return '$' + price.toFixed(2);
+}
+
+function toUSD(price, currency) {
+  return currency === 'INR' ? price / USD_TO_INR : price;
+}
+
+function dualPrice(price, currency) {
+  if (!price) return { primary: '—', secondary: '' };
+  if (currency === 'INR') {
+    return { primary: '₹' + Math.round(price).toLocaleString('en-IN'), secondary: '~$' + (price / USD_TO_INR).toFixed(0) };
+  }
+  return { primary: '$' + price.toFixed(2), secondary: '~₹' + Math.round(price * USD_TO_INR).toLocaleString('en-IN') };
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 const SOURCES_META = ['amazon', 'flipkart', 'walmart', 'costco', 'indiamart', 'ebay', 'bigbasket'];
 const SOURCE_LABELS = {
   'Amazon US': 'amazon', Flipkart: 'flipkart', 'Walmart US': 'walmart',
@@ -325,10 +356,10 @@ function ResultsContent() {
     } catch {}
   }, [streamDone]);
 
-  const cheapest = results.filter((r) => r.price).sort((a, b) => a.price - b.price)[0];
-  const bestPrice = cheapest?.price;
-  const allPrices = results.filter((r) => r.price).map((r) => r.price);
-  const avgPrice = allPrices.length ? allPrices.reduce((a, b) => a + b) / allPrices.length : 0;
+  const allPricesUSD = results.filter((r) => r.price).map((r) => toUSD(r.price, getCurrency(r)));
+  const cheapest = results.filter((r) => r.price).sort((a, b) => toUSD(a.price, getCurrency(a)) - toUSD(b.price, getCurrency(b)))[0];
+  const bestPrice = cheapest ? toUSD(cheapest.price, getCurrency(cheapest)) : null;
+  const avgPrice = allPricesUSD.length ? allPricesUSD.reduce((a, b) => a + b) / allPricesUSD.length : 0;
   const savings = bestPrice && avgPrice ? (((avgPrice - bestPrice) / avgPrice) * 100).toFixed(1) : null;
 
   const sp = parseFloat(sellingPrice) || 0;
@@ -417,7 +448,7 @@ function ResultsContent() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         {[
           { label: 'BEST PRICE', value: bestPrice ? `$${bestPrice.toFixed(2)}` : '—', sub: savings ? `↓ ${savings}% vs avg` : 'Scanning...', subColor: 'text-[#16A34A]' },
-          { label: 'AVG PRICE', value: avgPrice ? `$${avgPrice.toFixed(2)}` : '—', sub: `${results.length} sources`, subColor: 'text-[#71717A]' },
+          { label: 'AVG PRICE', value: avgPrice ? `$${avgPrice.toFixed(2)}` : '—', sub: `${results.length} sources · USD normalized`, subColor: 'text-[#71717A]' },
           { label: 'SOURCES', value: `${results.length}/7`, sub: streamDone ? 'Complete' : 'Live fetch...', subColor: streamDone ? 'text-[#16A34A]' : 'text-[#D97706]' },
           { label: 'BEST SOURCE', value: cheapest?.source?.split(' ')[0] || '—', sub: cheapest?.stock || 'Scanning...', subColor: 'text-[#71717A]' },
         ].map((card) => (
@@ -536,9 +567,17 @@ function ResultsContent() {
                     </div>
 
                     {/* Price */}
-                    <span className="font-mono text-[14px] font-semibold text-[#09090B]">
-                      {row.price ? `$${row.price.toFixed(2)}` : '—'}
-                    </span>
+                    <div className="flex flex-col">
+                      {(() => {
+                        const { primary, secondary } = dualPrice(row.price, getCurrency(row));
+                        return (
+                          <>
+                            <span className="font-mono text-[14px] font-semibold text-[#09090B]">{primary}</span>
+                            {secondary && <span className="font-mono text-[11px] text-[#A1A1AA]">{secondary}</span>}
+                          </>
+                        );
+                      })()}
+                    </div>
 
                     {sellerMode ? (
                       <>
@@ -618,7 +657,13 @@ function ResultsContent() {
                 {cheapest && (
                   <div className="p-2.5 bg-[#F0FDF4] border border-[#BBF7D0] rounded-lg">
                     <p className="text-[11px] text-[#16A34A] font-semibold">Best price to cite:</p>
-                    <p className="text-[13px] font-bold text-[#16A34A]">${cheapest.price?.toFixed(2)} @ {cheapest.source}</p>
+                    <p className="text-[13px] font-bold text-[#16A34A]">
+                      {dualPrice(cheapest.price, getCurrency(cheapest)).primary}
+                      {dualPrice(cheapest.price, getCurrency(cheapest)).secondary && (
+                        <span className="text-[11px] font-normal ml-1 opacity-70">{dualPrice(cheapest.price, getCurrency(cheapest)).secondary}</span>
+                      )}
+                      {' '}@ {cheapest.source}
+                    </p>
                   </div>
                 )}
               </div>

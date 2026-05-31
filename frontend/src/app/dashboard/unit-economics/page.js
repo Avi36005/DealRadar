@@ -6,6 +6,31 @@ import { Download } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
+// ── Currency utilities ────────────────────────────────────────────────────────
+const USD_TO_INR = 83.5;
+
+const SOURCE_CURRENCY = {
+  'Flipkart': 'INR', 'IndiaMART': 'INR', 'BigBasket': 'INR',
+};
+
+function getCurrency(row) {
+  if (row?.currency) return row.currency;
+  return SOURCE_CURRENCY[row?.source] || 'USD';
+}
+
+function toUSD(price, currency) {
+  return currency === 'INR' ? price / USD_TO_INR : price;
+}
+
+function dualPrice(price, currency) {
+  if (!price) return { primary: '—', secondary: '' };
+  if (currency === 'INR') {
+    return { primary: '₹' + Math.round(price).toLocaleString('en-IN'), secondary: '~$' + (price / USD_TO_INR).toFixed(0) };
+  }
+  return { primary: '$' + price.toFixed(2), secondary: '~₹' + Math.round(price * USD_TO_INR).toLocaleString('en-IN') };
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 const DEMO_SUPPLIERS = [
   { id: 1, source: 'Amazon US',  cogs: 1242.00, stock: 'In Stock' },
   { id: 2, source: 'Newegg',     cogs: 1299.99, stock: 'In Stock' },
@@ -14,23 +39,27 @@ const DEMO_SUPPLIERS = [
   { id: 5, source: 'Costco',     cogs: 1255.00, stock: 'In Stock' },
 ];
 
-function calcRow(cogs, sellingPrice, qty) {
+function calcRow(cogs, sellingPrice, qty, currency = 'USD') {
   if (!sellingPrice || sellingPrice <= 0) return null;
-  const grossMarginPct = ((sellingPrice - cogs) / sellingPrice) * 100;
-  const profitPerUnit = sellingPrice - cogs;
+  const cogsUSD = toUSD(cogs, currency);
+  const grossMarginPct = ((sellingPrice - cogsUSD) / sellingPrice) * 100;
+  const profitPerUnit = sellingPrice - cogsUSD;
   const profitAtQty = profitPerUnit * qty;
-  const breakEven = profitPerUnit > 0 ? Math.ceil(cogs / profitPerUnit) : Infinity;
-  const roi = cogs > 0 ? (profitPerUnit / cogs) * 100 : 0;
+  const breakEven = profitPerUnit > 0 ? Math.ceil(cogsUSD / profitPerUnit) : Infinity;
+  const roi = cogsUSD > 0 ? (profitPerUnit / cogsUSD) * 100 : 0;
   return { grossMarginPct, profitPerUnit, profitAtQty, breakEven, roi };
 }
 
 function exportCSV(rows, sellingPrice, qty) {
-  const headers = ['Source', 'COGS', 'Selling Price', 'Gross Margin %', 'Profit/Unit', `Profit @ ${qty} units`, 'Break-even Qty', 'ROI %'];
+  const headers = ['Source', 'COGS (native)', 'COGS (USD)', 'Selling Price (USD)', 'Gross Margin %', 'Profit/Unit (USD)', `Profit @ ${qty} units (USD)`, 'Break-even Qty', 'ROI %'];
   const lines = rows.map((r) => {
-    const m = calcRow(r.cogs, sellingPrice, qty);
-    if (!m) return [r.source, r.cogs, sellingPrice, '—', '—', '—', '—', '—'].join(',');
+    const currency = getCurrency(r);
+    const m = calcRow(r.cogs, sellingPrice, qty, currency);
+    const cogsUSD = toUSD(r.cogs, currency);
+    const { primary: cogsNative } = dualPrice(r.cogs, currency);
+    if (!m) return [r.source, cogsNative, cogsUSD.toFixed(2), sellingPrice, '—', '—', '—', '—', '—'].join(',');
     return [
-      r.source, r.cogs.toFixed(2), sellingPrice.toFixed(2),
+      r.source, cogsNative, cogsUSD.toFixed(2), sellingPrice.toFixed(2),
       m.grossMarginPct.toFixed(1) + '%',
       m.profitPerUnit.toFixed(2),
       m.profitAtQty.toFixed(2),
@@ -66,6 +95,7 @@ export default function UnitEconomicsPage() {
               source: r.source,
               cogs: typeof r.price === 'number' ? r.price : parseFloat(r.price) || 0,
               stock: r.stock || 'In Stock',
+              currency: getCurrency(r),
             }))
           );
         }
@@ -79,7 +109,7 @@ export default function UnitEconomicsPage() {
   const q = parseInt(qty) || 1;
 
   // Find best margin row
-  const rowsWithMetrics = suppliers.map((s) => ({ ...s, metrics: calcRow(s.cogs, sp, q) }));
+  const rowsWithMetrics = suppliers.map((s) => ({ ...s, metrics: calcRow(s.cogs, sp, q, getCurrency(s)) }));
   const bestMarginId = sp > 0
     ? rowsWithMetrics.reduce((best, r) =>
         r.metrics && (!best.metrics || r.metrics.grossMarginPct > best.metrics.grossMarginPct) ? r : best
@@ -168,15 +198,26 @@ export default function UnitEconomicsPage() {
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#16A34A] text-white">BEST</span>
                     )}
                   </div>
-                  <span className="font-mono text-[14px] font-semibold text-[#09090B]">
-                    ${row.cogs.toFixed(2)}
-                  </span>
+                  <div className="flex flex-col">
+                    {(() => {
+                      const { primary, secondary } = dualPrice(row.cogs, getCurrency(row));
+                      return (
+                        <>
+                          <span className="font-mono text-[14px] font-semibold text-[#09090B]">{primary}</span>
+                          {secondary && <span className="font-mono text-[11px] text-[#A1A1AA]">{secondary}</span>}
+                        </>
+                      );
+                    })()}
+                  </div>
                   <span className={`font-mono text-[14px] font-semibold ${m ? (m.grossMarginPct > 0 ? 'text-[#16A34A]' : 'text-[#DC2626]') : 'text-[#A1A1AA]'}`}>
                     {m ? `${m.grossMarginPct.toFixed(1)}%` : '—'}
                   </span>
-                  <span className={`font-mono text-[14px] font-semibold ${m ? (m.profitAtQty > 0 ? 'text-[#16A34A]' : 'text-[#DC2626]') : 'text-[#A1A1AA]'}`}>
-                    {m ? `$${m.profitAtQty.toFixed(2)}` : '—'}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className={`font-mono text-[14px] font-semibold ${m ? (m.profitAtQty > 0 ? 'text-[#16A34A]' : 'text-[#DC2626]') : 'text-[#A1A1AA]'}`}>
+                      {m ? `$${m.profitAtQty.toFixed(2)}` : '—'}
+                    </span>
+                    {m && <span className="font-mono text-[11px] text-[#A1A1AA]">${m.profitPerUnit.toFixed(2)}/unit</span>}
+                  </div>
                   <span className="font-mono text-[14px] text-[#09090B]">
                     {m ? (m.breakEven === Infinity ? '∞' : m.breakEven) : '—'}
                   </span>
