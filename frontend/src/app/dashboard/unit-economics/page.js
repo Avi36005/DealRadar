@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Download } from 'lucide-react';
+import { Download, Search } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,14 +30,6 @@ function dualPrice(price, currency) {
   return { primary: '$' + price.toFixed(2), secondary: '~₹' + Math.round(price * USD_TO_INR).toLocaleString('en-IN') };
 }
 // ─────────────────────────────────────────────────────────────────────────────
-
-const DEMO_SUPPLIERS = [
-  { id: 1, source: 'Amazon US',  cogs: 1242.00, stock: 'In Stock' },
-  { id: 2, source: 'Newegg',     cogs: 1299.99, stock: 'In Stock' },
-  { id: 3, source: 'B&H Video',  cogs: 1310.00, stock: 'Low Stock' },
-  { id: 4, source: 'Walmart',    cogs: 1265.00, stock: 'In Stock' },
-  { id: 5, source: 'Costco',     cogs: 1255.00, stock: 'In Stock' },
-];
 
 function calcRow(cogs, sellingPrice, qty, currency = 'USD') {
   if (!sellingPrice || sellingPrice <= 0) return null;
@@ -80,7 +72,7 @@ function exportCSV(rows, sellingPrice, qty) {
 export default function UnitEconomicsPage() {
   const [sellingPrice, setSellingPrice] = useState('');
   const [qty, setQty] = useState('100');
-  const [suppliers, setSuppliers] = useState(DEMO_SUPPLIERS);
+  const [suppliers, setSuppliers] = useState([]);
   const [productName, setProductName] = useState('');
 
   useEffect(() => {
@@ -100,8 +92,17 @@ export default function UnitEconomicsPage() {
           );
         }
       }
-      const lastQuery = localStorage.getItem('dealradar_recent_searches');
-      if (lastQuery) setProductName(lastQuery);
+      const rawSearches = localStorage.getItem('dealradar_recent_searches');
+      if (rawSearches) {
+        try {
+          const parsed = JSON.parse(rawSearches);
+          const first = Array.isArray(parsed) ? parsed[0] : null;
+          if (first) setProductName(first);
+        } catch {
+          // rawSearches was a plain string (legacy), use as-is
+          setProductName(rawSearches);
+        }
+      }
     } catch {}
   }, []);
 
@@ -178,74 +179,83 @@ export default function UnitEconomicsPage() {
             ))}
           </div>
 
-          <div className="divide-y divide-[#E4E4E7]/50">
-            {rowsWithMetrics.map((row, i) => {
-              const m = row.metrics;
-              const isBest = row.id === bestMarginId;
-              return (
-                <motion.div
-                  key={row.id}
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2 + i * 0.06, duration: 0.3 }}
-                  className={`grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_1fr] items-center px-6 py-4 transition-colors ${
-                    isBest ? 'bg-[#F0FDF4] border-l-[3px] border-l-[#16A34A]' : 'hover:bg-[#FAFAFA]'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-[14px] font-medium text-[#09090B]">{row.source}</span>
-                    {isBest && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#16A34A] text-white">BEST</span>
-                    )}
-                  </div>
-                  <div className="flex flex-col">
-                    {(() => {
-                      const currency = getCurrency(row);
-                      const cogs_in_inr = currency === 'INR' ? row.cogs : row.cogs * USD_TO_INR;
-                      return (
-                        <span className="font-mono text-[14px] font-semibold text-[#09090B]">
-                          {'₹' + Math.round(cogs_in_inr).toLocaleString('en-IN')}
-                        </span>
-                      );
-                    })()}
-                  </div>
-                  <span className={`font-mono text-[14px] font-semibold ${m ? (m.grossMarginPct > 0 ? 'text-[#16A34A]' : 'text-[#DC2626]') : 'text-[#A1A1AA]'}`}>
-                    {m ? `${m.grossMarginPct.toFixed(1)}%` : '—'}
-                  </span>
-                  <div className="flex flex-col">
-                    <span className={`font-mono text-[14px] font-semibold ${m ? (m.profitAtQty > 0 ? 'text-[#16A34A]' : 'text-[#DC2626]') : 'text-[#A1A1AA]'}`}>
-                      {m ? `₹${Math.round(m.profitAtQty * USD_TO_INR).toLocaleString('en-IN')}` : '—'}
+          {suppliers.length === 0 ? (
+            <div className="py-16 text-center text-[#A1A1AA]">
+              <Search size={32} className="mx-auto mb-3 opacity-30" />
+              <p className="text-[14px]">Search a product first to see data here</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-[#E4E4E7]/50">
+              {rowsWithMetrics.map((row, i) => {
+                const m = row.metrics;
+                const isBest = row.id === bestMarginId;
+                return (
+                  <motion.div
+                    key={row.id}
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 + i * 0.06, duration: 0.3 }}
+                    className={`grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_1fr] items-center px-6 py-4 transition-colors ${
+                      isBest ? 'bg-[#F0FDF4] border-l-[3px] border-l-[#16A34A]' : 'hover:bg-[#FAFAFA]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-[14px] font-medium text-[#09090B]">{row.source}</span>
+                      {isBest && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#16A34A] text-white">BEST</span>
+                      )}
+                    </div>
+                    <div className="flex flex-col">
+                      {(() => {
+                        const currency = getCurrency(row);
+                        const cogs_in_inr = currency === 'INR' ? row.cogs : row.cogs * USD_TO_INR;
+                        return (
+                          <span className="font-mono text-[14px] font-semibold text-[#09090B]">
+                            {'₹' + Math.round(cogs_in_inr).toLocaleString('en-IN')}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                    <span className={`font-mono text-[14px] font-semibold ${m ? (m.grossMarginPct > 0 ? 'text-[#16A34A]' : 'text-[#DC2626]') : 'text-[#A1A1AA]'}`}>
+                      {m ? `${m.grossMarginPct.toFixed(1)}%` : '—'}
                     </span>
-                    {m && <span className="font-mono text-[11px] text-[#A1A1AA]">₹{Math.round(m.profitPerUnit * USD_TO_INR).toLocaleString('en-IN')}/unit</span>}
-                  </div>
-                  <span className="font-mono text-[14px] text-[#09090B]">
-                    {m ? (m.breakEven === Infinity ? '∞' : m.breakEven) : '—'}
-                  </span>
-                  <span className={`font-mono text-[14px] font-semibold ${m ? (m.roi > 0 ? 'text-[#16A34A]' : 'text-[#DC2626]') : 'text-[#A1A1AA]'}`}>
-                    {m ? `${m.roi.toFixed(1)}%` : '—'}
-                  </span>
-                  <span className={`text-[12px] font-medium px-2 py-0.5 rounded-full w-fit ${
-                    row.stock === 'Low Stock' ? 'bg-[#FEF2F2] text-[#DC2626]' : 'bg-[#F4F4F5] text-[#71717A]'
-                  }`}>
-                    {row.stock}
-                  </span>
-                </motion.div>
-              );
-            })}
-          </div>
+                    <div className="flex flex-col">
+                      <span className={`font-mono text-[14px] font-semibold ${m ? (m.profitAtQty > 0 ? 'text-[#16A34A]' : 'text-[#DC2626]') : 'text-[#A1A1AA]'}`}>
+                        {m ? `₹${Math.round(m.profitAtQty * USD_TO_INR).toLocaleString('en-IN')}` : '—'}
+                      </span>
+                      {m && <span className="font-mono text-[11px] text-[#A1A1AA]">₹{Math.round(m.profitPerUnit * USD_TO_INR).toLocaleString('en-IN')}/unit</span>}
+                    </div>
+                    <span className="font-mono text-[14px] text-[#09090B]">
+                      {m ? (m.breakEven === Infinity ? '∞' : m.breakEven) : '—'}
+                    </span>
+                    <span className={`font-mono text-[14px] font-semibold ${m ? (m.roi > 0 ? 'text-[#16A34A]' : 'text-[#DC2626]') : 'text-[#A1A1AA]'}`}>
+                      {m ? `${m.roi.toFixed(1)}%` : '—'}
+                    </span>
+                    <span className={`text-[12px] font-medium px-2 py-0.5 rounded-full w-fit ${
+                      row.stock === 'Low Stock' ? 'bg-[#FEF2F2] text-[#DC2626]' : 'bg-[#F4F4F5] text-[#71717A]'
+                    }`}>
+                      {row.stock}
+                    </span>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </motion.div>
 
-      {/* Export CSV */}
-      <div className="flex justify-end mt-4">
-        <button
-          onClick={() => exportCSV(suppliers, sp, q)}
-          className="flex items-center gap-2 text-[13px] font-medium text-[#71717A] border border-[#E4E4E7] px-4 py-2 rounded-lg hover:bg-[#F4F4F5] transition-colors"
-        >
-          <Download size={14} />
-          Export as CSV
-        </button>
-      </div>
+      {/* Export CSV — only shown when there is real data */}
+      {suppliers.length > 0 && (
+        <div className="flex justify-end mt-4">
+          <button
+            onClick={() => exportCSV(suppliers, sp, q)}
+            className="flex items-center gap-2 text-[13px] font-medium text-[#71717A] border border-[#E4E4E7] px-4 py-2 rounded-lg hover:bg-[#F4F4F5] transition-colors"
+          >
+            <Download size={14} />
+            Export as CSV
+          </button>
+        </div>
+      )}
     </div>
   );
 }

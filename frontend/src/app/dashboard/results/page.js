@@ -340,8 +340,7 @@ function ResultsContent() {
   // Save to Firestore once stream is done
   useEffect(() => {
     if (!streamDone || !results.length) return;
-    const email = user?.email || 'guest@dealradar.app';
-    savePriceHistoryBatch(email, query, results).catch(() => {});
+    savePriceHistoryBatch(query, results).catch(() => {});
   }, [streamDone]);
 
   // Persist last results + query to localStorage for Unit Economics / Price History / AI Insights

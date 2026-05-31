@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  Legend, ResponsiveContainer, Cell,
 } from 'recharts';
 import { Copy, Check, Loader2 } from 'lucide-react';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -159,11 +159,9 @@ export default function AIInsightsPage() {
   const [emails, setEmails] = useState(null);          // null = not yet loaded
   const [emailsLoading, setEmailsLoading] = useState(false);
 
-  // ── Chart / Price History state ───────────────────────────────────────────
-  const [chartData, setChartData] = useState(null);    // null = no real data
-  const [chartLoading, setChartLoading] = useState(false);
+  // ── Chart state — reads from localStorage last results (always live) ────────
+  const [chartData, setChartData] = useState(null);
   const [chartProduct, setChartProduct] = useState('');
-  const [chartKeys, setChartKeys] = useState([]);
 
   // ── Load arbitrage from last search results ───────────────────────────────
   useEffect(() => {
@@ -210,67 +208,33 @@ export default function AIInsightsPage() {
       .finally(() => setEmailsLoading(false));
   }, [user, authLoading]);
 
-  // ── Fetch price history chart ─────────────────────────────────────────────
+  // ── Build live price chart from last search results (localStorage) ──────────
   useEffect(() => {
-    const product = (() => {
+    const loadChart = () => {
       try {
-        const raw = localStorage.getItem('dealradar_recent_searches');
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed[0] : null;
-      } catch {
-        return null;
-      }
-    })();
-
-    if (!product) {
-      // No recent search — show empty state
-      setChartData(null);
-      setChartKeys([]);
-      return;
-    }
-
-    setChartProduct(product);
-    setChartLoading(true);
-
-    fetch(`${API_BASE}/api/history?product=${encodeURIComponent(product)}`)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data) => {
-        // Accept either { rows: [...] } or a plain array
-        const rows = Array.isArray(data) ? data : (data.rows ?? data.history ?? []);
-        const built = buildChartData(rows);
-        if (!built || built.length === 0) {
-          setChartData(null);
-          setChartKeys([]);
-        } else {
-          // Derive the set of source keys actually present in the data
-          const keys = [...new Set(built.flatMap((d) => Object.keys(d).filter((k) => k !== 'date')))];
-          // Convert prices to INR
-          const inrBuilt = built.map((point) => {
-            const converted = { date: point.date };
-            for (const k of keys) {
-              if (point[k] != null) converted[k] = Math.round(point[k] * USD_TO_INR);
-            }
-            return converted;
-          });
-          setChartData(inrBuilt);
-          setChartKeys(keys);
-        }
-      })
-      .catch(() => {
-        setChartData(null);
-        setChartKeys([]);
-      })
-      .finally(() => setChartLoading(false));
+        const raw = localStorage.getItem('dealradar_last_results');
+        const searches = JSON.parse(localStorage.getItem('dealradar_recent_searches') || '[]');
+        const product = Array.isArray(searches) ? searches[0] : null;
+        if (!raw || !product) { setChartData(null); return; }
+        const results = JSON.parse(raw);
+        const bars = results
+          .filter((r) => r.price)
+          .map((r) => ({
+            source: r.source.replace(' US', '').replace('IndiaMART', 'IndiaMART'),
+            price: r.currency === 'INR' ? Math.round(r.price) : Math.round(r.price * USD_TO_INR),
+            currency: r.currency,
+          }))
+          .sort((a, b) => a.price - b.price);
+        setChartProduct(product);
+        setChartData(bars.length > 0 ? bars : null);
+      } catch { setChartData(null); }
+    };
+    loadChart();
+    window.addEventListener('focus', loadChart);
+    return () => window.removeEventListener('focus', loadChart);
   }, []);
 
-  // ── Resolved display values ───────────────────────────────────────────────
   const displayEmails = emails ?? [];
-  const displayChartData = chartData ?? [];
-  const displayChartKeys = chartKeys;
 
   return (
     <div className="p-6 lg:p-8 space-y-8">
@@ -326,64 +290,49 @@ export default function AIInsightsPage() {
         </div>
       </motion.div>
 
-      {/* ── 2. Market Trend Analysis ── */}
+      {/* ── 2. Live Price Comparison ── */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.4 }}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            <h2 className="text-[16px] font-semibold text-[#09090B]">Market Trend Analysis</h2>
+            <h2 className="text-[16px] font-semibold text-[#09090B]">Live Price Comparison</h2>
             {chartProduct && chartData && (
-              <span className="text-[11px] font-medium text-[#71717A] bg-[#F4F4F5] px-2 py-0.5 rounded-full truncate max-w-[200px]">
+              <span className="text-[11px] font-medium text-[#71717A] bg-[#F4F4F5] px-2 py-0.5 rounded-full truncate max-w-[220px]">
                 {chartProduct}
               </span>
-            )}
-            {chartLoading && (
-              <Loader2 size={14} className="text-[#A1A1AA] animate-spin" />
             )}
           </div>
           <span className="text-[11px] font-medium text-[#A1A1AA] flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A] inline-block animate-pulse" />
-            Powered by Gemini
+            Live · Anakin Wire
           </span>
         </div>
         <div className="bg-white border border-[#E4E4E7] rounded-[14px] p-6 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
-          {chartLoading ? (
-            <div className="flex items-center justify-center h-[280px] gap-2 text-[13px] text-[#A1A1AA]">
-              <Loader2 size={18} className="animate-spin" />
-              Loading price history…
-            </div>
-          ) : !chartData || displayChartData.length === 0 ? (
-            <div className="flex items-center justify-center h-[280px] text-center">
+          {!chartData ? (
+            <div className="flex items-center justify-center h-[320px] text-center">
               <div>
-                <p className="text-[15px] font-medium text-[#09090B]">No price trends yet</p>
-                <p className="text-[13px] text-[#71717A] mt-1">Search a product first to see price trends.</p>
+                <p className="text-[15px] font-medium text-[#09090B]">No data yet</p>
+                <p className="text-[13px] text-[#71717A] mt-1">Search a product on the Results page to see live price comparison.</p>
               </div>
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={displayChartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E4E4E7" />
-                <XAxis dataKey="date" stroke="#A1A1AA" tick={{ fontSize: 11 }} />
-                <YAxis stroke="#A1A1AA" tick={{ fontSize: 11 }} tickFormatter={(v) => `₹${v.toLocaleString('en-IN')}`} />
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={chartData} margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false} />
+                <XAxis dataKey="source" stroke="#A1A1AA" tick={{ fontSize: 12, fill: '#09090B', fontWeight: 500 }} axisLine={{ stroke: '#E4E4E7' }} />
+                <YAxis stroke="#A1A1AA" tick={{ fontSize: 11 }} width={90} tickFormatter={(v) => '₹' + Math.round(v).toLocaleString('en-IN')} />
                 <Tooltip
-                  contentStyle={{ background: '#fff', border: '1px solid #E4E4E7', borderRadius: 8, fontSize: 12 }}
-                  formatter={(v) => [`₹${Number(v).toLocaleString('en-IN')}`, undefined]}
+                  contentStyle={{ background: '#fff', border: '1px solid #E4E4E7', borderRadius: 8, fontSize: 13, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                  formatter={(value) => [`₹${Math.round(value).toLocaleString('en-IN')}`, 'Price']}
+                  labelStyle={{ fontWeight: 700, color: '#09090B', marginBottom: 4 }}
+                  cursor={{ fill: 'rgba(0,0,0,0.04)' }}
                 />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                {displayChartKeys.map((key) => {
-                  const color = LINE_COLORS[key] ?? '#A1A1AA';
-                  return (
-                    <Line
-                      key={key}
-                      type="monotone"
-                      dataKey={key}
-                      stroke={color}
-                      strokeWidth={2}
-                      dot={{ r: 3, fill: color }}
-                      activeDot={{ r: 5 }}
-                    />
-                  );
-                })}
-              </LineChart>
+                <Bar dataKey="price" radius={[6, 6, 0, 0]} maxBarSize={64}>
+                  {chartData.map((entry, index) => {
+                    const colors = ['#16A34A','#2563EB','#D97706','#9333EA','#0891B2','#EA580C','#DC2626'];
+                    return <Cell key={entry.source} fill={colors[index % colors.length]} />;
+                  })}
+                </Bar>
+              </BarChart>
             </ResponsiveContainer>
           )}
         </div>

@@ -16,10 +16,7 @@ const USD_TO_INR = 83.5;
 const RANGES = ['7D', '30D', '90D'];
 
 // Palette cycles through these for dynamically discovered sources
-const COLOR_PALETTE = [
-  '#16A34A', '#D97706', '#2563EB', '#DC2626',
-  '#9333EA', '#0891B2', '#EA580C', '#4F46E5',
-];
+const COLOR_PALETTE = ['#16A34A', '#2563EB', '#D97706', '#DC2626', '#9333EA', '#0891B2', '#EA580C'];
 
 const LS_KEY = 'dealradar_recent_searches';
 
@@ -286,7 +283,7 @@ export default function PriceHistoryPage() {
 
         {/* Loading skeleton */}
         {loading && (
-          <div className="flex items-center justify-center h-[280px]">
+          <div className="flex items-center justify-center h-[320px]">
             <div className="flex flex-col items-center gap-3">
               <div className="w-8 h-8 border-2 border-[#16A34A] border-t-transparent rounded-full animate-spin" />
               <span className="text-[13px] text-[#71717A]">Loading price history…</span>
@@ -296,7 +293,7 @@ export default function PriceHistoryPage() {
 
         {/* Error state */}
         {!loading && error && (
-          <div className="flex items-center justify-center h-[280px]">
+          <div className="flex items-center justify-center h-[320px]">
             <div className="text-center">
               <p className="text-[14px] font-medium text-[#DC2626]">Failed to load data</p>
               <p className="text-[13px] text-[#71717A] mt-1">{error}</p>
@@ -306,7 +303,7 @@ export default function PriceHistoryPage() {
 
         {/* Empty state */}
         {!loading && !error && isEmpty && (
-          <div className="flex items-center justify-center h-[280px]">
+          <div className="flex items-center justify-center h-[320px]">
             <div className="text-center">
               <p className="text-[15px] font-medium text-[#09090B]">No price history yet for this product</p>
               <p className="text-[13px] text-[#71717A] mt-1">Search it first on the Results page.</p>
@@ -316,25 +313,26 @@ export default function PriceHistoryPage() {
 
         {/* Chart */}
         {!loading && !error && !isEmpty && (
-          <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E4E4E7" />
-              <XAxis dataKey="date" stroke="#A1A1AA" tick={{ fontSize: 11 }} />
-              <YAxis stroke="#A1A1AA" tick={{ fontSize: 11 }} tickFormatter={(v) => `₹${Number(v).toLocaleString('en-IN')}`} />
+          <ResponsiveContainer width="100%" height={320}>
+            <LineChart data={chartData} margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" />
+              <XAxis dataKey="date" stroke="#A1A1AA" tick={{ fontSize: 11, fill: '#71717A' }} axisLine={{ stroke: '#E4E4E7' }} />
+              <YAxis stroke="#A1A1AA" tick={{ fontSize: 11 }} width={80} tickFormatter={(v) => '₹' + Math.round(v).toLocaleString('en-IN')} />
               <Tooltip
-                contentStyle={{ background: '#fff', border: '1px solid #E4E4E7', borderRadius: 8, fontSize: 12 }}
-                formatter={(v) => [`₹${Number(v).toLocaleString('en-IN')}`, undefined]}
+                contentStyle={{ background: '#fff', border: '1px solid #E4E4E7', borderRadius: 8, fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                formatter={(value, name) => [`₹${Math.round(value).toLocaleString('en-IN')}`, name]}
+                labelStyle={{ fontWeight: 600, color: '#09090B', marginBottom: 4 }}
               />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 13, paddingTop: 16 }} iconType="circle" />
               {sources.map((src) => (
                 <Line
                   key={src}
                   type="monotone"
                   dataKey={src}
                   stroke={lineColors[src]}
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: lineColors[src] }}
-                  activeDot={{ r: 5 }}
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: lineColors[src] }}
+                  activeDot={{ r: 6 }}
                   connectNulls
                 />
               ))}

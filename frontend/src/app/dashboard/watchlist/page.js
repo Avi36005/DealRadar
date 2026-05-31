@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/lib/firebase';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, RefreshCw, X } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, X, Search } from 'lucide-react';
 import {
   getWatchlistForUser,
   addToWatchlist,
@@ -37,32 +37,41 @@ function Sparkline({ trend = 'down' }) {
 export default function WatchlistPage() {
   const [user] = useAuthState(auth);
   const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ productName: '', targetPrice: '' });
   const [adding, setAdding] = useState(false);
   const [checkingId, setCheckingId] = useState(null);
 
-  // Load from Firestore on mount (always, using fallback email for guests)
-  useEffect(() => {
-    const email = (user?.email || 'guest@dealradar.app');
+  const fetchWatchlist = useCallback(() => {
+    const email = user?.email || 'guest@dealradar.app';
     setLoading(true);
     getWatchlistForUser(email)
       .then((data) => {
-        if (data.length > 0) {
-          setItems(
-            data.map((d) => ({
-              ...d,
-              trend: d.currentBestPrice <= d.targetPrice ? 'down' : 'up',
-              alertStatus:
-                d.currentBestPrice <= d.targetPrice ? 'TARGET REACHED' : 'Watching',
-            }))
-          );
-        }
+        setItems(
+          data.map((d) => ({
+            ...d,
+            trend: d.currentBestPrice <= d.targetPrice ? 'down' : 'up',
+            alertStatus:
+              d.currentBestPrice <= d.targetPrice ? 'TARGET REACHED' : 'Watching',
+          }))
+        );
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [user?.email]);
+
+  // Load from Firestore on mount and whenever the email resolves
+  useEffect(() => {
+    fetchWatchlist();
+  }, [fetchWatchlist]);
+
+  // Re-fetch when the window regains focus (e.g. user added item from results page)
+  useEffect(() => {
+    const onFocus = () => fetchWatchlist();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [fetchWatchlist]);
 
   const handleAdd = async () => {
     if (!form.productName.trim()) return;
@@ -217,9 +226,16 @@ export default function WatchlistPage() {
           })}
         </div>
 
-        {items.length === 0 && (
-          <div className="py-16 text-center text-[#A1A1AA] text-[14px]">
-            No products on your watchlist yet.
+        {loading && (
+          <div className="py-16 text-center text-[#A1A1AA]">
+            <div className="w-7 h-7 border-2 border-[#09090B] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-[13px]">Loading your watchlist…</p>
+          </div>
+        )}
+        {!loading && items.length === 0 && (
+          <div className="py-16 text-center text-[#A1A1AA]">
+            <Search size={32} className="mx-auto mb-3 opacity-30" />
+            <p className="text-[14px]">Search a product first to see data here</p>
           </div>
         )}
       </div>

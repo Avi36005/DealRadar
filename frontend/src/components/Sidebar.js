@@ -20,7 +20,7 @@ import {
 const NAV_ITEMS = [
   { href: '/dashboard/search',         label: 'Search',         icon: Search      },
   { href: '/dashboard/results',        label: 'Results',        icon: BarChart2   },
-  { href: '/dashboard/trend-radar',    label: 'Demand Radar',   icon: Radar, badge: 'NEW' },
+  { href: '/dashboard/trend-radar',    label: 'Demand Radar',   icon: Radar },
   { href: '/dashboard/ai-insights',    label: 'AI Insights',    icon: Sparkles    },
   { href: '/dashboard/watchlist',      label: 'Watch List',     icon: Eye         },
   { href: '/dashboard/unit-economics', label: 'Unit Economics', icon: DollarSign  },
