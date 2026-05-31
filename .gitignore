@@ -3,10 +3,11 @@ node_modules/
 frontend/node_modules/
 backend/node_modules/
 
-# Environment variables
+# Environment variables & deployment secrets
 .env
 .env.local
 .env.*.local
+secrets.env
 
 # Next.js build output
 .next/

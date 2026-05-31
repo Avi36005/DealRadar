@@ -1,0 +1,33 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - '--build-arg=NEXT_PUBLIC_FIREBASE_API_KEY=${_FB_API_KEY}'
+      - '--build-arg=NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${_FB_AUTH_DOMAIN}'
+      - '--build-arg=NEXT_PUBLIC_FIREBASE_PROJECT_ID=${_FB_PROJECT_ID}'
+      - '--build-arg=NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${_FB_STORAGE_BUCKET}'
+      - '--build-arg=NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${_FB_MSG_SENDER_ID}'
+      - '--build-arg=NEXT_PUBLIC_FIREBASE_APP_ID=${_FB_APP_ID}'
+      - '--build-arg=NEXT_PUBLIC_API_URL=${_API_URL}'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/dealradar-frontend:$BUILD_ID'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/dealradar-frontend:latest'
+      - '.'
+
+images:
+  - 'gcr.io/$PROJECT_ID/dealradar-frontend:latest'
+  - 'gcr.io/$PROJECT_ID/dealradar-frontend:$BUILD_ID'
+
+substitutions:
+  _FB_API_KEY: 'AIzaSyB9N_Me_U1AN4tTkon2UkoxFoOhQ4HHPGU'
+  _FB_AUTH_DOMAIN: 'mediflow-nexus-2026.firebaseapp.com'
+  _FB_PROJECT_ID: 'mediflow-nexus-2026'
+  _FB_STORAGE_BUCKET: 'mediflow-nexus-2026.firebasestorage.app'
+  _FB_MSG_SENDER_ID: '3692981377'
+  _FB_APP_ID: '1:3692981377:web:a4058938fd2d2beefcf180'
+  _API_URL: 'https://dealradar-backend-placeholder.run.app'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
