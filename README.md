@@ -39,7 +39,7 @@ An enterprise-grade, high-performance intelligence platform that aggregates live
 *   **AI Auto-Email Generation:** Custom, ready-to-send draft email generator for supplier outreach, negotiations, or purchase orders.
 *   **Multi-Source Interactive Charts:** Real-time multi-series price trend visualization built on top of `Recharts` with responsive layout coloring.
 *   **Dynamic Unit Economics:** Real-time margin calculator reading last search results for automatic COGS evaluation, shipping expense additions, and margin forecasts with CSV exports.
-*   **Automated Watchlist Cron Alerts:** Isolated Firestore database keeping track of saved products, updating daily prices at 8:00 AM IST via Vercel/Cloud Run scheduler, sending automatic alert emails through **Resend** upon price drops.
+*   **Automated Watchlist Cron Alerts:** Isolated Firestore database keeping track of saved products, updating daily prices at 8:00 AM IST via **Google Cloud Scheduler** and **Cloud Run**, sending automatic alert emails through **Resend** upon price drops.
 
 ---
 
@@ -137,7 +137,7 @@ To run the application locally on your computer:
 
 ## 🚀 One-Click Deployment Pipeline
 
-DealRadar comes equipped with enterprise-ready GCP and Vercel CD integration.
+DealRadar comes equipped with a 100% native Google Cloud Platform (GCP) deployment pipeline for both frontend and backend services.
 
 ### Deploying to Google Cloud Run (Fully Automated)
 
@@ -156,12 +156,8 @@ We provide platform-specific scripts to automate building Docker containers via 
     ./deploy.sh
     ```
 
-### Deploying Frontend to Vercel
-1.  Go to the [Vercel Dashboard](https://vercel.com/dashboard).
-2.  Click **Import Project** and select your DealRadar repo.
-3.  Set the **Root Directory** to `frontend/`.
-4.  Configure all environment variables from `frontend/.env.local`.
-5.  Click **Deploy**!
+*   **Automated Watchlist Cron Job:**
+    The pipeline automatically registers and updates a **Google Cloud Scheduler** job configured to run daily price checks via Cloud Run backend API endpoints secure-headers.
 
 ---
 
