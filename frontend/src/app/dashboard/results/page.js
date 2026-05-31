@@ -312,6 +312,19 @@ function ResultsContent() {
     savePriceHistoryBatch(query, results).catch(() => {});
   }, [streamDone]);
 
+  // Persist last results + query to localStorage for Unit Economics / Price History / AI Insights
+  useEffect(() => {
+    if (!streamDone || !results.length) return;
+    try {
+      localStorage.setItem('dealradar_last_results', JSON.stringify(results));
+      // Keep recent_searches as a deduplicated array (same format as SearchPage)
+      const LS_KEY = 'dealradar_recent_searches';
+      const prev = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+      const updated = [query, ...prev.filter((r) => r !== query)].slice(0, 6);
+      localStorage.setItem(LS_KEY, JSON.stringify(updated));
+    } catch {}
+  }, [streamDone]);
+
   const cheapest = results.filter((r) => r.price).sort((a, b) => a.price - b.price)[0];
   const bestPrice = cheapest?.price;
   const allPrices = results.filter((r) => r.price).map((r) => r.price);

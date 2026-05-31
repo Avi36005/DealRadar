@@ -11,8 +11,7 @@ import {
   Send,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_BASE } from '@/lib/config';
 
 const QUICK_PROMPTS = [
   'Find best deal for headphones',

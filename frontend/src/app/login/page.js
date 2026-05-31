@@ -28,7 +28,7 @@ export default function LoginPage() {
       const result = await signInWithPopup(auth, provider);
       
       if (result.user) {
-        router.push('/dashboard/results');
+        router.push('/dashboard/search');
       }
     } catch (err) {
       setError(err.message || 'Failed to sign in with Google');

@@ -10,6 +10,7 @@ import {
   addToWatchlist,
   deleteFromWatchlist,
 } from '@/lib/firestore-ops';
+import { API_BASE } from '@/lib/config';
 
 export const dynamic = 'force-dynamic';
 
@@ -153,7 +154,7 @@ export default function WatchlistPage() {
     setCheckingId(item.id);
     // Re-run search for this product
     try {
-      const res = await fetch('/api/search', {
+      const res = await fetch(`${API_BASE}/api/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: item.productName }),

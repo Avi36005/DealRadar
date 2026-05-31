@@ -1,17 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Download } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-const SUPPLIERS = [
-  { id: 1, source: 'Amazon US',  cogs: 1242.00, stock: 'In Stock', best: true  },
-  { id: 2, source: 'Newegg',     cogs: 1299.99, stock: 'In Stock', best: false },
-  { id: 3, source: 'B&H Video',  cogs: 1310.00, stock: 'Low Stock', best: false },
-  { id: 4, source: 'Walmart',    cogs: 1265.00, stock: 'In Stock', best: false },
-  { id: 5, source: 'Costco',     cogs: 1255.00, stock: 'In Stock', best: false },
+const DEMO_SUPPLIERS = [
+  { id: 1, source: 'Amazon US',  cogs: 1242.00, stock: 'In Stock' },
+  { id: 2, source: 'Newegg',     cogs: 1299.99, stock: 'In Stock' },
+  { id: 3, source: 'B&H Video',  cogs: 1310.00, stock: 'Low Stock' },
+  { id: 4, source: 'Walmart',    cogs: 1265.00, stock: 'In Stock' },
+  { id: 5, source: 'Costco',     cogs: 1255.00, stock: 'In Stock' },
 ];
 
 function calcRow(cogs, sellingPrice, qty) {
@@ -51,12 +51,35 @@ function exportCSV(rows, sellingPrice, qty) {
 export default function UnitEconomicsPage() {
   const [sellingPrice, setSellingPrice] = useState('');
   const [qty, setQty] = useState('100');
+  const [suppliers, setSuppliers] = useState(DEMO_SUPPLIERS);
+  const [productName, setProductName] = useState('');
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('dealradar_last_results');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setSuppliers(
+            parsed.map((r, i) => ({
+              id: i + 1,
+              source: r.source,
+              cogs: typeof r.price === 'number' ? r.price : parseFloat(r.price) || 0,
+              stock: r.stock || 'In Stock',
+            }))
+          );
+        }
+      }
+      const lastQuery = localStorage.getItem('dealradar_recent_searches');
+      if (lastQuery) setProductName(lastQuery);
+    } catch {}
+  }, []);
 
   const sp = parseFloat(sellingPrice) || 0;
   const q = parseInt(qty) || 1;
 
   // Find best margin row
-  const rowsWithMetrics = SUPPLIERS.map((s) => ({ ...s, metrics: calcRow(s.cogs, sp, q) }));
+  const rowsWithMetrics = suppliers.map((s) => ({ ...s, metrics: calcRow(s.cogs, sp, q) }));
   const bestMarginId = sp > 0
     ? rowsWithMetrics.reduce((best, r) =>
         r.metrics && (!best.metrics || r.metrics.grossMarginPct > best.metrics.grossMarginPct) ? r : best
@@ -68,7 +91,11 @@ export default function UnitEconomicsPage() {
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mb-6">
         <h1 className="text-[28px] font-bold text-[#09090B]">Unit Economics</h1>
-        <p className="text-[14px] text-[#71717A] mt-0.5">Enter your selling price and quantity to see margin calculations</p>
+        <p className="text-[14px] text-[#71717A] mt-0.5">
+          {productName
+            ? <>Results for <span className="font-semibold text-[#09090B]">{productName}</span> — enter your selling price and quantity to see margin calculations</>
+            : 'Enter your selling price and quantity to see margin calculations'}
+        </p>
       </motion.div>
 
       {/* Input row */}
@@ -105,12 +132,6 @@ export default function UnitEconomicsPage() {
             className="h-10 px-4 w-28 font-mono text-[14px] bg-white border border-[#E4E4E7] rounded-lg outline-none focus:border-[#16A34A] focus:ring-[3px] focus:ring-[rgba(22,163,74,0.15)] transition-all"
           />
         </div>
-        <button
-          onClick={() => {}}
-          className="h-10 px-5 bg-[#09090B] text-white text-[13px] font-semibold rounded-lg hover:bg-[#16A34A] transition-colors"
-        >
-          Calculate
-        </button>
       </motion.div>
 
       {/* Supplier economics table */}
@@ -177,7 +198,7 @@ export default function UnitEconomicsPage() {
       {/* Export CSV */}
       <div className="flex justify-end mt-4">
         <button
-          onClick={() => exportCSV(SUPPLIERS, sp, q)}
+          onClick={() => exportCSV(suppliers, sp, q)}
           className="flex items-center gap-2 text-[13px] font-medium text-[#71717A] border border-[#E4E4E7] px-4 py-2 rounded-lg hover:bg-[#F4F4F5] transition-colors"
         >
           <Download size={14} />

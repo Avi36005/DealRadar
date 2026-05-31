@@ -174,3 +174,6 @@ export async function getEmailHistoryForUser(userEmail: string): Promise<EmailRe
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as EmailRecord));
 }
+
+/** Alias used by the AI Insights page. */
+export const getEmailsForUser = getEmailHistoryForUser;
