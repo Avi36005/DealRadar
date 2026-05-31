@@ -13,8 +13,6 @@ import {
   Eye,
   DollarSign,
   TrendingUp,
-  Settings,
-  HelpCircle,
   ChevronLeft,
   Radar,
 } from 'lucide-react';
@@ -29,10 +27,7 @@ const NAV_ITEMS = [
   { href: '/dashboard/price-history',  label: 'Price History',  icon: TrendingUp  },
 ];
 
-const BOTTOM_ITEMS = [
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings   },
-  { href: '#',                   label: 'Support',  icon: HelpCircle },
-];
+const BOTTOM_ITEMS = [];
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
@@ -149,21 +144,6 @@ export default function Sidebar() {
             </div>
           </Link>
         ))}
-
-        {/* Upgrade Plan button */}
-        <AnimatePresence>
-          {!collapsed && (
-            <motion.button
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="w-full mt-1 bg-[#09090B] text-white text-sm font-medium py-2 px-3 rounded-lg hover:bg-[#16A34A] transition-colors duration-200"
-            >
-              Upgrade Plan
-            </motion.button>
-          )}
-        </AnimatePresence>
 
         {/* User info */}
         <div className="flex items-center gap-3 px-3 py-2 mt-1">

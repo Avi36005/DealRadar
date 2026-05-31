@@ -2,6 +2,8 @@
 
 An enterprise-grade, high-performance intelligence platform that aggregates live B2B supplier data across 7 leading suppliers, calculates precise unit economics, predicts price movements using Google Gemini, performs arbitrage analysis via OpenAI GPT-4o, and automates multi-source watchlist tracking with daily price-drop alerts.
 
+**🌐 Live Demo:** [dealradar-frontend-m477e5mida-el.a.run.app](https://dealradar-frontend-m477e5mida-el.a.run.app/)
+
 ---
 
 ### 🚀 Technology Stack & Badges
