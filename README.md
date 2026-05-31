@@ -33,12 +33,13 @@ An enterprise-grade, high-performance intelligence platform that aggregates live
 ## ✨ Features Implemented
 
 *   **Cinematic Landing Page:** Premium landing page with interactive Framer Motion animations, per-character staggered headings, custom SVG underline draws, and smooth scroll effects.
-*   **Multi-Source Live Scraping:** Single unified product search across 7 major platforms: **Amazon, Alibaba, AliExpress, Walmart, eBay, Etsy, and Wayfair** via Server-Sent Events (SSE) stream loading.
+*   **Multi-Source Live Scraping:** Single unified product search across 7 major platforms with native currency normalizing (USD/INR conversion) for Indian B2B sources like Flipkart, IndiaMART, and BigBasket alongside standard USD sources (Amazon, Alibaba, Walmart, eBay, Etsy, Wayfair).
+*   **Demand Radar (Trend Shock Prediction):** A predictive analytics dashboard highlighting emerging demand spikes, search query volume momentum, viral social media trends, and market risk analysis powered by Google Gemini Pro with OpenAI GPT-4o automatic fallback.
 *   **AI Arbitrage Intelligence (GPT-4o):** Instant multi-dimensional B2B arbitrage evaluations to highlight gaps between supply/demand, margins, and target markets.
 *   **Predictive Pricing (Gemini):** Machine-learning powered price trend predictions with percentage confidence scores.
 *   **AI Auto-Email Generation:** Custom, ready-to-send draft email generator for supplier outreach, negotiations, or purchase orders.
 *   **Multi-Source Interactive Charts:** Real-time multi-series price trend visualization built on top of `Recharts` with responsive layout coloring.
-*   **Dynamic Unit Economics:** Real-time margin calculator reading last search results for automatic COGS evaluation, shipping expense additions, and margin forecasts with CSV exports.
+*   **Dynamic Unit Economics:** Real-time margin calculator reading last search results for automatic COGS evaluation (normalized to USD with dual INR/USD price tag visualizations), break-even calculations, and margin forecasts with CSV exports.
 *   **Automated Watchlist Cron Alerts:** Isolated Firestore database keeping track of saved products, updating daily prices at 8:00 AM IST via **Google Cloud Scheduler** and **Cloud Run**, sending automatic alert emails through **Resend** upon price drops.
 
 ---
