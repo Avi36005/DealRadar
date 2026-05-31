@@ -1,5 +1,12 @@
 # 🎯 DealRadar — Smart Arbitrage & Deal Intelligence Platform
 
+[![Next.js](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)](https://dealradar-frontend-3692981377.asia-south1.run.app)
+[![Express](https://img.shields.io/badge/Express-4.x-lightgrey?style=for-the-badge&logo=express)](https://dealradar-backend-3692981377.asia-south1.run.app)
+[![Firebase](https://img.shields.io/badge/Firebase-Auth%20%26%20Firestore-orange?style=for-the-badge&logo=firebase)](https://console.firebase.google.com/)
+[![Google Cloud Run](https://img.shields.io/badge/Google%20Cloud%20Run-Deployed-blue?style=for-the-badge&logo=google-cloud)](https://dealradar-frontend-3692981377.asia-south1.run.app)
+
+🚀 **Live Application**: [https://dealradar-frontend-3692981377.asia-south1.run.app](https://dealradar-frontend-3692981377.asia-south1.run.app)
+
 DealRadar is a premium, state-of-the-art product search, price tracking, and AI-powered arbitrage analysis platform. It enables users to scan products across **7 major global suppliers**, predict price movements using AI, and automatically draft vendor outreach emails to maximize profit margins.
 
 ---
