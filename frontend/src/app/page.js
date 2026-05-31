@@ -133,7 +133,7 @@ export default function Home() {
           {/* Right CTAs */}
           <div className="flex items-center gap-4">
             <Link href="/dashboard/search" className="text-[#71717A] text-sm hover:text-[#09090B] transition-colors">
-              Sign in
+              Dashboard
             </Link>
             <Link href="/dashboard/search" className="bg-[#09090B] text-white px-5 py-2 rounded-full text-sm font-medium hover:bg-accent-green transition-all duration-300">
               Get Started
