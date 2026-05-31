@@ -27,7 +27,91 @@ const AI_KEYS = {
 
 // --- Helpers ---
 
-// Use Groq to estimate realistic product-specific prices when Wire API fails
+const WIRE_BASE = "https://api.anakin.io/v1/wire";
+
+// Extract price data from Wire result — handles different shapes per catalog
+function extractWireProduct(result, actionId) {
+  const d = result?.data?.data;
+  if (!d) return null;
+
+  // Each catalog returns data under a different key
+  const item =
+    (d.products   && d.products[0])   ||   // amazon, flipkart, costco, bigbasket
+    (d.listings   && d.listings[0])   ||   // ebay search / completed
+    (d.offers     && d.offers[0])     ||   // indiamart
+    (d.results    && d.results[0])    ||   // walmart
+    (d.items      && d.items[0])      ||
+    null;
+
+  if (!item) return null;
+
+  // Normalise price across catalog schemas
+  const rawPrice =
+    item.price           ??   // amazon, flipkart, ebay, indiamart, bigbasket
+    item.warehouse_price ??   // costco (cheapest in-store price)
+    item.delivery_price  ??   // costco delivery fallback
+    item.sale_price      ??
+    item.selling_price   ??
+    item.mrp             ??
+    0;
+
+  const price = parseFloat(rawPrice) || null;
+  if (!price) return null;
+
+  const stock =
+    item.availability === "IN_STOCK" ? "In Stock" :
+    item.availability === "OUT_OF_STOCK" ? "Out of Stock" :
+    item.in_stock === false ? "Out of Stock" :
+    item.stock_status || "In Stock";
+
+  return {
+    price,
+    currency: item.currency || null,
+    stock,
+    eta: item.delivery_info || item.estimated_delivery || null,
+    rating: parseFloat(item.rating || item.seller_rating || item.rating_count || 0) || null,
+    reviewCount: parseInt(item.review_count || item.reviews || item.rating_count || 0) || null,
+    url: item.url || item.product_url || item.link || null,
+    title: item.title || item.name || null,
+  };
+}
+
+// Fetch real price from Anakin Wire API (async job pattern)
+async function fetchWirePrice(actionId, params, wireApiKey) {
+  if (!wireApiKey) return null;
+  try {
+    // 1. Submit task
+    const submitRes = await fetch(`${WIRE_BASE}/task`, {
+      method: "POST",
+      headers: { "X-API-Key": wireApiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ action_id: actionId, params }),
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!submitRes.ok) return null;
+    const { job_id } = await submitRes.json();
+    if (!job_id) return null;
+
+    // 2. Poll until complete — max 20 attempts × 1.5s = 30s
+    for (let i = 0; i < 20; i++) {
+      await new Promise(r => setTimeout(r, 1500));
+      const pollRes = await fetch(`${WIRE_BASE}/jobs/${job_id}`, {
+        headers: { "X-API-Key": wireApiKey },
+        signal: AbortSignal.timeout(5000)
+      });
+      if (!pollRes.ok) continue;
+      const result = await pollRes.json();
+      if (result.status !== "completed") continue;
+
+      return extractWireProduct(result, actionId);
+    }
+    return null;
+  } catch (err) {
+    console.error(`Wire fetch failed (${actionId}):`, err.message);
+    return null;
+  }
+}
+
+// Groq AI fallback — realistic product-specific price when Wire has no data
 async function getAIPriceEstimate(query, sourceLabel, currency, groqKey) {
   if (!groqKey) return null;
   try {
@@ -36,9 +120,7 @@ async function getAIPriceEstimate(query, sourceLabel, currency, groqKey) {
       : 'US Dollars (USD). Give realistic US market price.';
     const prompt = `You are a product pricing database. Return a realistic price for "${query}" sold on ${sourceLabel}.
 Currency: ${currencyNote}
-Return ONLY valid JSON with this exact shape (no explanation):
-{"price": <number>, "stock": "<In Stock|Low Stock|Out of Stock>", "eta": "<e.g. 2 Days>"}
-Be specific to the product. If the product is unlikely to be sold on this retailer, still give a plausible estimate.`;
+Return ONLY valid JSON: {"price": <number>, "stock": "<In Stock|Low Stock|Out of Stock>", "eta": "<e.g. 2 Days>"}`;
 
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -46,8 +128,7 @@ Be specific to the product. If the product is unlikely to be sold on this retail
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 80,
-        temperature: 0.2,
+        max_tokens: 80, temperature: 0.2,
         response_format: { type: "json_object" }
       }),
       signal: AbortSignal.timeout(8000)
@@ -84,67 +165,44 @@ app.post("/api/search", async (req, res) => {
     res.write(`data: ${JSON.stringify(data)}\n\n`);
   };
 
-  const wireApiKey = process.env.ANAKIN_WIRE_API_KEY;
-
-  // 7 Wire sources definitions
+  // 7 sources with verified Anakin Wire action IDs
   const sources = [
-    { name: "amazon", label: "Amazon US", action: "search products", currency: "USD", fallbackPrice: 1242.00, stock: "In Stock", eta: "2 Days", rating: 4.9, reviewCount: 1540 },
-    { name: "flipkart", label: "Flipkart", action: "search products", currency: "INR", fallbackPrice: 108500, stock: "In Stock", eta: "3-5 Days", rating: 4.7, reviewCount: 840 },
-    { name: "walmart", label: "Walmart US", action: "search products", currency: "USD", fallbackPrice: 1320.00, stock: "In Stock", eta: "3 Days", rating: 4.6, reviewCount: 310 },
-    { name: "costco", label: "Costco US", action: "search products", currency: "USD", fallbackPrice: 1349.90, stock: "Low Stock", eta: "5 Days", rating: 4.4, reviewCount: 120 },
-    { name: "indiamart", label: "IndiaMART", action: "search products", currency: "INR", fallbackPrice: 100200, stock: "In Stock", eta: "7 Days", rating: 4.5, reviewCount: 450 },
-    { name: "ebay", label: "eBay US", action: "search listings", currency: "USD", fallbackPrice: 1290.00, stock: "In Stock", eta: "4 Days", rating: 4.8, reviewCount: 610 },
-    { name: "bigbasket", label: "BigBasket", action: "search products", currency: "INR", fallbackPrice: 115200, stock: "Out of Stock", eta: "9 Days", rating: 4.2, reviewCount: 90 }
+    { label: "Amazon US",  actionId: "am_search_products",     wireParams: { query, limit: 1 },                    currency: "USD", fallbackPrice: 1242.00, stock: "In Stock",    eta: "2 Days",   rating: 4.9, reviewCount: 1540 },
+    { label: "Flipkart",   actionId: "fk_search_products",     wireParams: { query, limit: 1 },                    currency: "INR", fallbackPrice: 108500,  stock: "In Stock",    eta: "3-5 Days", rating: 4.7, reviewCount: 840  },
+    { label: "Walmart US", actionId: "walmart_search",          wireParams: { query, limit: 1 },                    currency: "USD", fallbackPrice: 1320.00, stock: "In Stock",    eta: "3 Days",   rating: 4.6, reviewCount: 310  },
+    { label: "Costco US",  actionId: "co_search_products",      wireParams: { query, page_size: 1 },                currency: "USD", fallbackPrice: 1349.90, stock: "Low Stock",   eta: "5 Days",   rating: 4.4, reviewCount: 120  },
+    { label: "IndiaMART",  actionId: "idm_search",              wireParams: { query, limit: 1 },                    currency: "INR", fallbackPrice: 100200,  stock: "In Stock",    eta: "7 Days",   rating: 4.5, reviewCount: 450  },
+    { label: "eBay US",    actionId: "eb_completed_listings",   wireParams: { query, condition: "new", page_size: 25 }, currency: "USD", fallbackPrice: 1290.00, stock: "In Stock", eta: "4 Days",  rating: 4.8, reviewCount: 610  },
+    { label: "BigBasket",  actionId: "bb_search_products",      wireParams: { query, limit: 1 },                    currency: "INR", fallbackPrice: 115200,  stock: "Out of Stock",eta: "9 Days",   rating: 4.2, reviewCount: 90   },
   ];
 
+  const wireApiKey = process.env.ANAKIN_WIRE_API_KEY;
   const settledResults = [];
 
   const fetchPromises = sources.map(async (src, index) => {
-    // Add artificial staggered arrival delay (500ms - 3000ms) for visual SSE impact
-    await new Promise(r => setTimeout(r, 400 + index * 350));
+    // Stagger SSE arrivals for visual effect
+    await new Promise(r => setTimeout(r, 200 + index * 200));
 
-    let resultData = null;
-
+    // 1. Try Anakin Wire (real prices)
+    let wireData = null;
     if (wireApiKey) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-        const wireRes = await fetch("https://api.anakin.ai/v1/wire", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${wireApiKey}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            source: src.name,
-            action: src.action,
-            query: query
-          }),
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-        const data = await wireRes.json();
-        if (data && data.price) {
-          resultData = {
-            source: src.label,
-            price: parseFloat(data.price),
-            currency: data.currency || src.currency,
-            stock: data.stock || "In Stock",
-            eta: data.eta || src.eta,
-            rating: parseFloat(data.rating) || src.rating,
-            reviewCount: parseInt(data.reviewCount) || src.reviewCount,
-            url: data.url || `https://${src.name}.com/s?q=${encodeURIComponent(query)}`
-          };
-        }
-      } catch (err) {
-        console.error(`Wire API call failed for ${src.name}:`, err);
-      }
+      wireData = await fetchWirePrice(src.actionId, src.wireParams, wireApiKey);
     }
 
-    // Fallback: try AI price estimate first, then hardcoded defaults
-    if (!resultData) {
+    // 2. Fallback to Groq AI estimate if Wire returns nothing
+    let resultData;
+    if (wireData?.price) {
+      resultData = {
+        source: src.label,
+        price: wireData.price,
+        currency: wireData.currency || src.currency,
+        stock: wireData.stock || src.stock,
+        eta: wireData.eta || src.eta,
+        rating: wireData.rating || src.rating,
+        reviewCount: wireData.reviewCount || src.reviewCount,
+        url: wireData.url || `https://www.google.com/search?q=${encodeURIComponent(src.label + " " + query)}`,
+      };
+    } else {
       const aiEstimate = await getAIPriceEstimate(query, src.label, src.currency, process.env.GROQ_API_KEY);
       resultData = {
         source: src.label,
@@ -154,7 +212,7 @@ app.post("/api/search", async (req, res) => {
         eta: aiEstimate?.eta || src.eta,
         rating: src.rating,
         reviewCount: src.reviewCount,
-        url: `https://www.google.com/search?q=${encodeURIComponent(src.label + " " + query)}`
+        url: `https://www.google.com/search?q=${encodeURIComponent(src.label + " " + query)}`,
       };
     }
 

@@ -33,51 +33,21 @@ function Sparkline({ trend = 'down' }) {
   );
 }
 
-// Demo fallback rows
-const DEMO_ITEMS = [
-  {
-    id: 'demo-1',
-    productName: 'Pro Camera Lens 85mm f/1.4',
-    targetPrice: 1200,
-    currentBestPrice: 1242,
-    bestSource: 'Amazon US',
-    trend: 'down',
-    alertStatus: 'Watching',
-  },
-  {
-    id: 'demo-2',
-    productName: 'Wireless Earbuds Pro',
-    targetPrice: 180,
-    currentBestPrice: 185,
-    bestSource: 'Walmart',
-    trend: 'down',
-    alertStatus: 'TARGET REACHED',
-  },
-  {
-    id: 'demo-3',
-    productName: 'MacBook Stand Aluminium',
-    targetPrice: 45,
-    currentBestPrice: 52,
-    bestSource: 'Newegg',
-    trend: 'up',
-    alertStatus: 'Watching',
-  },
-];
 
 export default function WatchlistPage() {
   const [user] = useAuthState(auth);
-  const [items, setItems] = useState(DEMO_ITEMS);
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ productName: '', targetPrice: '' });
   const [adding, setAdding] = useState(false);
   const [checkingId, setCheckingId] = useState(null);
 
-  // Load from Firestore when user is available
+  // Load from Firestore on mount (always, using fallback email for guests)
   useEffect(() => {
-    if (!user?.email) return;
+    const email = (user?.email || 'guest@dealradar.app');
     setLoading(true);
-    getWatchlistForUser(user.email)
+    getWatchlistForUser(email)
       .then((data) => {
         if (data.length > 0) {
           setItems(
@@ -92,48 +62,34 @@ export default function WatchlistPage() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [user]);
+  }, [user?.email]);
 
   const handleAdd = async () => {
     if (!form.productName.trim()) return;
     setAdding(true);
     try {
       const targetPrice = parseFloat(form.targetPrice) || 0;
-      if (user?.email) {
-        const id = await addToWatchlist(
-          user.email,
-          form.productName.trim(),
-          form.productName.trim(),
+      const email = (user?.email || 'guest@dealradar.app');
+      const id = await addToWatchlist(
+        email,
+        form.productName.trim(),
+        form.productName.trim(),
+        targetPrice,
+        0,
+        ''
+      );
+      setItems((prev) => [
+        {
+          id,
+          productName: form.productName.trim(),
           targetPrice,
-          0,
-          ''
-        );
-        setItems((prev) => [
-          {
-            id,
-            productName: form.productName.trim(),
-            targetPrice,
-            currentBestPrice: 0,
-            bestSource: '—',
-            trend: 'up',
-            alertStatus: 'Watching',
-          },
-          ...prev,
-        ]);
-      } else {
-        setItems((prev) => [
-          {
-            id: 'local-' + Date.now(),
-            productName: form.productName.trim(),
-            targetPrice,
-            currentBestPrice: 0,
-            bestSource: '—',
-            trend: 'up',
-            alertStatus: 'Watching',
-          },
-          ...prev,
-        ]);
-      }
+          currentBestPrice: 0,
+          bestSource: '—',
+          trend: 'up',
+          alertStatus: 'Watching',
+        },
+        ...prev,
+      ]);
       setForm({ productName: '', targetPrice: '' });
       setShowModal(false);
     } catch (err) {
@@ -145,9 +101,7 @@ export default function WatchlistPage() {
 
   const handleDelete = async (id) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
-    if (!id.startsWith('demo-') && !id.startsWith('local-')) {
-      try { await deleteFromWatchlist(id); } catch {}
-    }
+    try { await deleteFromWatchlist(id); } catch {}
   };
 
   const handleCheckNow = async (item) => {

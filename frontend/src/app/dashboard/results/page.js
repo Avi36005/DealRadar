@@ -339,8 +339,9 @@ function ResultsContent() {
 
   // Save to Firestore once stream is done
   useEffect(() => {
-    if (!streamDone || !results.length || !user?.email) return;
-    savePriceHistoryBatch(query, results).catch(() => {});
+    if (!streamDone || !results.length) return;
+    const email = user?.email || 'guest@dealradar.app';
+    savePriceHistoryBatch(email, query, results).catch(() => {});
   }, [streamDone]);
 
   // Persist last results + query to localStorage for Unit Economics / Price History / AI Insights
@@ -365,15 +366,16 @@ function ResultsContent() {
   const sp = parseFloat(sellingPrice) || 0;
 
   const handleSaveEmail = async (supplierName, emailBody) => {
-    if (!user?.email) return;
-    await saveEmailRecord(user.email, query, supplierName, emailBody).catch(() => {});
+    const email = user?.email || 'guest@dealradar.app';
+    await saveEmailRecord(email, query, supplierName, emailBody).catch(() => {});
   };
 
   const handleAddToWatchlist = async (row) => {
-    if (!user?.email || !row.price) return;
+    if (!row.price) return;
+    const email = user?.email || 'guest@dealradar.app';
     setWatchlistSaving(row.source);
     try {
-      await firestoreAddToWatchlist(user.email, query, query, row.price * 0.95, row.price, row.source);
+      await firestoreAddToWatchlist(email, query, query, row.price * 0.95, row.price, row.source);
     } catch {}
     setWatchlistSaving(null);
   };
@@ -447,8 +449,8 @@ function ResultsContent() {
       {/* Metric cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         {[
-          { label: 'BEST PRICE', value: bestPrice ? `$${bestPrice.toFixed(2)}` : '—', sub: savings ? `↓ ${savings}% vs avg` : 'Scanning...', subColor: 'text-[#16A34A]' },
-          { label: 'AVG PRICE', value: avgPrice ? `$${avgPrice.toFixed(2)}` : '—', sub: `${results.length} sources · USD normalized`, subColor: 'text-[#71717A]' },
+          { label: 'BEST PRICE', value: bestPrice ? `₹${Math.round(bestPrice * USD_TO_INR).toLocaleString('en-IN')}` : '—', sub: savings ? `↓ ${savings}% vs avg` : 'Scanning...', subColor: 'text-[#16A34A]' },
+          { label: 'AVG PRICE', value: avgPrice ? `₹${Math.round(avgPrice * USD_TO_INR).toLocaleString('en-IN')}` : '—', sub: `${results.length} sources · INR normalized`, subColor: 'text-[#71717A]' },
           { label: 'SOURCES', value: `${results.length}/7`, sub: streamDone ? 'Complete' : 'Live fetch...', subColor: streamDone ? 'text-[#16A34A]' : 'text-[#D97706]' },
           { label: 'BEST SOURCE', value: cheapest?.source?.split(' ')[0] || '—', sub: cheapest?.stock || 'Scanning...', subColor: 'text-[#71717A]' },
         ].map((card) => (
@@ -569,12 +571,12 @@ function ResultsContent() {
                     {/* Price */}
                     <div className="flex flex-col">
                       {(() => {
-                        const { primary, secondary } = dualPrice(row.price, getCurrency(row));
+                        const currency = getCurrency(row);
+                        const price_in_inr = currency === 'INR' ? row.price : row.price * USD_TO_INR;
                         return (
-                          <>
-                            <span className="font-mono text-[14px] font-semibold text-[#09090B]">{primary}</span>
-                            {secondary && <span className="font-mono text-[11px] text-[#A1A1AA]">{secondary}</span>}
-                          </>
+                          <span className="font-mono text-[14px] font-semibold text-[#09090B]">
+                            {formatPrice(price_in_inr, 'INR')}
+                          </span>
                         );
                       })()}
                     </div>
@@ -658,10 +660,11 @@ function ResultsContent() {
                   <div className="p-2.5 bg-[#F0FDF4] border border-[#BBF7D0] rounded-lg">
                     <p className="text-[11px] text-[#16A34A] font-semibold">Best price to cite:</p>
                     <p className="text-[13px] font-bold text-[#16A34A]">
-                      {dualPrice(cheapest.price, getCurrency(cheapest)).primary}
-                      {dualPrice(cheapest.price, getCurrency(cheapest)).secondary && (
-                        <span className="text-[11px] font-normal ml-1 opacity-70">{dualPrice(cheapest.price, getCurrency(cheapest)).secondary}</span>
-                      )}
+                      {(() => {
+                        const currency = getCurrency(cheapest);
+                        const price_in_inr = currency === 'INR' ? cheapest.price : cheapest.price * USD_TO_INR;
+                        return formatPrice(price_in_inr, 'INR');
+                      })()}
                       {' '}@ {cheapest.source}
                     </p>
                   </div>

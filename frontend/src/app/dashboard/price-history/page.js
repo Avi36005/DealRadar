@@ -11,6 +11,8 @@ import { API_BASE } from '@/lib/config';
 
 export const dynamic = 'force-dynamic';
 
+const USD_TO_INR = 83.5;
+
 const RANGES = ['7D', '30D', '90D'];
 
 // Palette cycles through these for dynamically discovered sources
@@ -40,9 +42,28 @@ function saveRecentSearch(term) {
   } catch {}
 }
 
+/** Returns true if the source is an international (USD) store. */
+function isUsdSource(source) {
+  const lower = (source || '').toLowerCase();
+  return (
+    lower.includes('amazon') ||
+    lower.includes('walmart') ||
+    lower.includes('newegg') ||
+    lower.includes('ebay') ||
+    lower.includes('bestbuy') ||
+    lower.includes('target') ||
+    lower.includes('costco')
+  );
+}
+
+/** Convert a price to INR. USD sources are multiplied by USD_TO_INR; INR sources are kept as-is. */
+function toInr(price, source) {
+  return isUsdSource(source) ? Math.round(Number(price) * USD_TO_INR) : Math.round(Number(price));
+}
+
 /**
  * Convert raw history rows to Recharts-friendly data points.
- * Each point: { date: string, [source]: price, ... }
+ * Each point: { date: string, [source]: price_in_INR, ... }
  * Grouped by a date bucket determined by `range`.
  */
 function buildChartData(rows, range) {
@@ -62,14 +83,14 @@ function buildChartData(rows, range) {
   const filtered = rows.filter((r) => new Date(r.timestamp).getTime() >= cutoffMs);
 
   // Group by date string (YYYY-MM-DD) then by source → keep latest price in that bucket
-  const buckets = {}; // { dateStr: { source: price } }
+  const buckets = {}; // { dateStr: { source: price_in_INR } }
   for (const row of filtered) {
     const d = new Date(row.timestamp);
     const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     if (!buckets[dateStr]) buckets[dateStr] = { _ts: d.getTime() };
     // keep the latest entry for a given source in this bucket
     if (!buckets[dateStr][row.source] || d.getTime() > buckets[dateStr]._ts) {
-      buckets[dateStr][row.source] = Number(row.price);
+      buckets[dateStr][row.source] = toInr(row.price, row.source);
     }
   }
 
@@ -287,8 +308,8 @@ export default function PriceHistoryPage() {
         {!loading && !error && isEmpty && (
           <div className="flex items-center justify-center h-[280px]">
             <div className="text-center">
-              <p className="text-[15px] font-medium text-[#09090B]">No history yet</p>
-              <p className="text-[13px] text-[#71717A] mt-1">Search for a product first to see price trends.</p>
+              <p className="text-[15px] font-medium text-[#09090B]">No price history yet for this product</p>
+              <p className="text-[13px] text-[#71717A] mt-1">Search it first on the Results page.</p>
             </div>
           </div>
         )}
@@ -299,10 +320,10 @@ export default function PriceHistoryPage() {
             <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E4E4E7" />
               <XAxis dataKey="date" stroke="#A1A1AA" tick={{ fontSize: 11 }} />
-              <YAxis stroke="#A1A1AA" tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
+              <YAxis stroke="#A1A1AA" tick={{ fontSize: 11 }} tickFormatter={(v) => `₹${Number(v).toLocaleString('en-IN')}`} />
               <Tooltip
                 contentStyle={{ background: '#fff', border: '1px solid #E4E4E7', borderRadius: 8, fontSize: 12 }}
-                formatter={(v) => [`$${v}`, undefined]}
+                formatter={(v) => [`₹${Number(v).toLocaleString('en-IN')}`, undefined]}
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               {sources.map((src) => (
@@ -344,7 +365,7 @@ export default function PriceHistoryPage() {
           {!loading && (error || isEmpty) && (
             <div className="px-6 py-10 text-center">
               <p className="text-[14px] text-[#71717A]">
-                {error ? 'Could not load price history.' : 'No history yet — search for a product first.'}
+                {error ? 'Could not load price history.' : 'No price history yet for this product. Search it first on the Results page.'}
               </p>
             </div>
           )}
@@ -370,7 +391,7 @@ export default function PriceHistoryPage() {
                     <span className="text-[13px] text-[#71717A]">{dateStr}</span>
                     <span className="text-[13px] font-medium text-[#09090B]">{row.source}</span>
                     <span className="font-mono text-[13px] font-semibold text-[#09090B]">
-                      ${Number(row.price).toFixed(2)}
+                      ₹{toInr(row.price, row.source).toLocaleString('en-IN')}
                     </span>
                     <span className={`text-[12px] font-medium px-2 py-0.5 rounded-full w-fit ${
                       isLow ? 'bg-[#FEF2F2] text-[#DC2626]' : 'bg-[#F4F4F5] text-[#71717A]'

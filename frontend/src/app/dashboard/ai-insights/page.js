@@ -14,23 +14,9 @@ import { API_BASE } from '@/lib/config';
 
 export const dynamic = 'force-dynamic';
 
-// ── Demo data ─────────────────────────────────────────────────────────────────
+// ── Constants ──────────────────────────────────────────────────────────────────
 
-const ARBITRAGE_ROWS = [
-  { id: 1, product: 'Pro Camera Lens 85mm f/1.4', sourceA: 'Amazon US', priceA: 1242.00, sourceB: 'eBay', priceB: 1599.00, spread: 22.3, action: 'Buy on Amazon' },
-  { id: 2, product: 'Wireless Earbuds Pro',        sourceA: 'Walmart',   priceA: 185.00,  sourceB: 'eBay', priceB: 329.00,  spread: 43.7, action: 'Flash Buy'    },
-  { id: 3, product: 'Smart Fitness Watch Pro',     sourceA: 'Flipkart',  priceA: 210.00,  sourceB: 'Amazon US', priceB: 299.00, spread: 29.7, action: 'Monitor'  },
-];
-
-const DEMO_CHART_DATA = [
-  { date: 'Jan 1',  amazon: 1310, walmart: 1280, flipkart: 1260, ebay: 1590 },
-  { date: 'Jan 8',  amazon: 1295, walmart: 1270, flipkart: 1255, ebay: 1580 },
-  { date: 'Jan 15', amazon: 1280, walmart: 1265, flipkart: 1248, ebay: 1570 },
-  { date: 'Jan 22', amazon: 1265, walmart: 1258, flipkart: 1242, ebay: 1560 },
-  { date: 'Jan 29', amazon: 1255, walmart: 1250, flipkart: 1240, ebay: 1555 },
-  { date: 'Feb 5',  amazon: 1248, walmart: 1245, flipkart: 1242, ebay: 1599 },
-  { date: 'Feb 12', amazon: 1242, walmart: 1242, flipkart: 1242, ebay: 1599 },
-];
+const USD_TO_INR = 83.5;
 
 const LINE_COLORS = {
   amazon:   '#16A34A',
@@ -38,33 +24,6 @@ const LINE_COLORS = {
   flipkart: '#2563EB',
   ebay:     '#DC2626',
 };
-
-const DEMO_EMAIL_HISTORY = [
-  {
-    id: 1,
-    supplier: 'Newegg',
-    product: 'Pro Camera Lens 85mm f/1.4',
-    timestamp: '2 hours ago',
-    status: 'Draft',
-    body: `Dear Newegg Account Manager,\n\nI am interested in placing a bulk order of 50 units of the Pro Camera Lens 85mm f/1.4. I have found the same product available at Amazon US for $1,242.00 per unit.\n\nCould you match or beat this price? I am ready to place the order immediately upon confirmation.\n\nBest regards`,
-  },
-  {
-    id: 2,
-    supplier: 'B&H Video',
-    product: 'Wireless Earbuds Pro',
-    timestamp: '1 day ago',
-    status: 'Sent',
-    body: `Dear B&H Video Team,\n\nI found Wireless Earbuds Pro at Walmart for $185.00. Can you match this price for a 100-unit order?\n\nThank you`,
-  },
-  {
-    id: 3,
-    supplier: 'Costco',
-    product: 'Smart Fitness Watch Pro',
-    timestamp: '3 days ago',
-    status: 'Draft',
-    body: `Dear Costco Procurement,\n\nRegarding Smart Fitness Watch Pro — Flipkart is offering $210.00. Can you provide a competitive quote for 200 units?\n\nBest regards`,
-  },
-];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -194,20 +153,17 @@ export default function AIInsightsPage() {
   const [user, authLoading] = useAuthState(auth);
 
   // ── Arbitrage state ───────────────────────────────────────────────────────
-  const [arbitrageRows, setArbitrageRows] = useState(ARBITRAGE_ROWS);
-  const [arbitrageIsDemo, setArbitrageIsDemo] = useState(true);
+  const [arbitrageRows, setArbitrageRows] = useState(null);  // null = no real data yet
 
   // ── Email / Negotiation History state ────────────────────────────────────
   const [emails, setEmails] = useState(null);          // null = not yet loaded
   const [emailsLoading, setEmailsLoading] = useState(false);
-  const [emailsIsDemo, setEmailsIsDemo] = useState(false);
 
   // ── Chart / Price History state ───────────────────────────────────────────
-  const [chartData, setChartData] = useState(null);    // null = not yet loaded
+  const [chartData, setChartData] = useState(null);    // null = no real data
   const [chartLoading, setChartLoading] = useState(false);
-  const [chartIsDemo, setChartIsDemo] = useState(false);
   const [chartProduct, setChartProduct] = useState('');
-  const [chartKeys, setChartKeys] = useState(Object.keys(LINE_COLORS));
+  const [chartKeys, setChartKeys] = useState([]);
 
   // ── Load arbitrage from last search results ───────────────────────────────
   useEffect(() => {
@@ -220,7 +176,6 @@ export default function AIInsightsPage() {
         const rows = buildArbitrageRows(results, productName);
         if (rows) {
           setArbitrageRows(rows);
-          setArbitrageIsDemo(false);
         }
       }
     } catch {}
@@ -230,18 +185,12 @@ export default function AIInsightsPage() {
   useEffect(() => {
     if (authLoading) return;
 
-    if (!user) {
-      setEmails(DEMO_EMAIL_HISTORY);
-      setEmailsIsDemo(true);
-      return;
-    }
-
+    const email = (user?.email || 'guest@dealradar.app');
     setEmailsLoading(true);
-    getEmailsForUser(user.email)
+    getEmailsForUser(email)
       .then((records) => {
         if (!records || records.length === 0) {
-          setEmails(DEMO_EMAIL_HISTORY);
-          setEmailsIsDemo(true);
+          setEmails([]);
         } else {
           // Normalise EmailRecord → display shape
           const normalised = records.map((r) => ({
@@ -253,12 +202,10 @@ export default function AIInsightsPage() {
             body: r.emailBody || '',
           }));
           setEmails(normalised);
-          setEmailsIsDemo(false);
         }
       })
       .catch(() => {
-        setEmails(DEMO_EMAIL_HISTORY);
-        setEmailsIsDemo(true);
+        setEmails([]);
       })
       .finally(() => setEmailsLoading(false));
   }, [user, authLoading]);
@@ -277,9 +224,9 @@ export default function AIInsightsPage() {
     })();
 
     if (!product) {
-      setChartData(DEMO_CHART_DATA);
-      setChartIsDemo(true);
-      setChartKeys(Object.keys(LINE_COLORS));
+      // No recent search — show empty state
+      setChartData(null);
+      setChartKeys([]);
       return;
     }
 
@@ -296,29 +243,34 @@ export default function AIInsightsPage() {
         const rows = Array.isArray(data) ? data : (data.rows ?? data.history ?? []);
         const built = buildChartData(rows);
         if (!built || built.length === 0) {
-          setChartData(DEMO_CHART_DATA);
-          setChartIsDemo(true);
-          setChartKeys(Object.keys(LINE_COLORS));
+          setChartData(null);
+          setChartKeys([]);
         } else {
           // Derive the set of source keys actually present in the data
           const keys = [...new Set(built.flatMap((d) => Object.keys(d).filter((k) => k !== 'date')))];
-          setChartData(built);
-          setChartIsDemo(false);
+          // Convert prices to INR
+          const inrBuilt = built.map((point) => {
+            const converted = { date: point.date };
+            for (const k of keys) {
+              if (point[k] != null) converted[k] = Math.round(point[k] * USD_TO_INR);
+            }
+            return converted;
+          });
+          setChartData(inrBuilt);
           setChartKeys(keys);
         }
       })
       .catch(() => {
-        setChartData(DEMO_CHART_DATA);
-        setChartIsDemo(true);
-        setChartKeys(Object.keys(LINE_COLORS));
+        setChartData(null);
+        setChartKeys([]);
       })
       .finally(() => setChartLoading(false));
   }, []);
 
   // ── Resolved display values ───────────────────────────────────────────────
-  const displayEmails = emails ?? DEMO_EMAIL_HISTORY;
-  const displayChartData = chartData ?? DEMO_CHART_DATA;
-  const displayChartKeys = chartData ? chartKeys : Object.keys(LINE_COLORS);
+  const displayEmails = emails ?? [];
+  const displayChartData = chartData ?? [];
+  const displayChartKeys = chartKeys;
 
   return (
     <div className="p-6 lg:p-8 space-y-8">
@@ -332,35 +284,45 @@ export default function AIInsightsPage() {
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.4 }}>
         <div className="flex items-center gap-2.5 mb-4">
           <h2 className="text-[16px] font-semibold text-[#09090B]">Arbitrage Opportunities</h2>
-          {arbitrageIsDemo && (
-            <span className="text-[11px] font-medium text-[#D97706] bg-[#FEF9C3] px-2 py-0.5 rounded-full">Demo data</span>
-          )}
         </div>
         <div className="bg-white border border-[#E4E4E7] rounded-[14px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
-          {/* Column headers */}
-          <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] px-6 py-3 bg-[#F4F4F5] border-b border-[#E4E4E7]">
-            {['PRODUCT', 'BUY FROM', 'BUY PRICE', 'VS SOURCE', 'SPREAD %', 'ACTION'].map((c) => (
-              <span key={c} className="text-[11px] font-semibold text-[#71717A] uppercase tracking-wider">{c}</span>
-            ))}
-          </div>
-          {arbitrageRows.map((row, i) => (
-            <motion.div
-              key={row.id}
-              initial={{ opacity: 0, x: -12 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.15 + i * 0.06, duration: 0.3 }}
-              className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] items-center px-6 py-4 border-b border-[#E4E4E7]/50 last:border-0 hover:bg-[#FAFAFA] transition-colors"
-            >
-              <span className="text-[13px] font-medium text-[#09090B] truncate pr-2">{row.product}</span>
-              <span className="text-[13px] text-[#71717A]">{row.sourceA}</span>
-              <span className="font-mono text-[13px] font-semibold text-[#16A34A]">${row.priceA.toFixed(2)}</span>
-              <span className="text-[13px] text-[#71717A]">{row.sourceB}</span>
-              <span className="font-mono text-[13px] font-bold text-[#09090B]">{row.spread}%</span>
-              <button className="text-[12px] font-semibold text-white bg-[#09090B] hover:bg-[#16A34A] px-3 py-1.5 rounded-lg transition-colors w-fit">
-                {row.action}
-              </button>
-            </motion.div>
-          ))}
+          {!arbitrageRows || arbitrageRows.length === 0 ? (
+            <div className="flex items-center justify-center py-16 text-center">
+              <div>
+                <p className="text-[15px] font-medium text-[#09090B]">No arbitrage opportunities yet</p>
+                <p className="text-[13px] text-[#71717A] mt-1">Search a product to see arbitrage opportunities.</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Column headers */}
+              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] px-6 py-3 bg-[#F4F4F5] border-b border-[#E4E4E7]">
+                {['PRODUCT', 'BUY FROM', 'BUY PRICE', 'VS SOURCE', 'SPREAD %', 'ACTION'].map((c) => (
+                  <span key={c} className="text-[11px] font-semibold text-[#71717A] uppercase tracking-wider">{c}</span>
+                ))}
+              </div>
+              {arbitrageRows.map((row, i) => (
+                <motion.div
+                  key={row.id}
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.15 + i * 0.06, duration: 0.3 }}
+                  className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] items-center px-6 py-4 border-b border-[#E4E4E7]/50 last:border-0 hover:bg-[#FAFAFA] transition-colors"
+                >
+                  <span className="text-[13px] font-medium text-[#09090B] truncate pr-2">{row.product}</span>
+                  <span className="text-[13px] text-[#71717A]">{row.sourceA}</span>
+                  <span className="font-mono text-[13px] font-semibold text-[#16A34A]">
+                    ₹{Math.round(row.priceA * USD_TO_INR).toLocaleString('en-IN')}
+                  </span>
+                  <span className="text-[13px] text-[#71717A]">{row.sourceB}</span>
+                  <span className="font-mono text-[13px] font-bold text-[#09090B]">{row.spread}%</span>
+                  <button className="text-[12px] font-semibold text-white bg-[#09090B] hover:bg-[#16A34A] px-3 py-1.5 rounded-lg transition-colors w-fit">
+                    {row.action}
+                  </button>
+                </motion.div>
+              ))}
+            </>
+          )}
         </div>
       </motion.div>
 
@@ -369,14 +331,9 @@ export default function AIInsightsPage() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
             <h2 className="text-[16px] font-semibold text-[#09090B]">Market Trend Analysis</h2>
-            {chartProduct && !chartIsDemo && (
+            {chartProduct && chartData && (
               <span className="text-[11px] font-medium text-[#71717A] bg-[#F4F4F5] px-2 py-0.5 rounded-full truncate max-w-[200px]">
                 {chartProduct}
-              </span>
-            )}
-            {chartIsDemo && (
-              <span className="text-[11px] font-medium text-[#D97706] bg-[#FEF9C3] px-2 py-0.5 rounded-full">
-                Demo data
               </span>
             )}
             {chartLoading && (
@@ -394,15 +351,22 @@ export default function AIInsightsPage() {
               <Loader2 size={18} className="animate-spin" />
               Loading price history…
             </div>
+          ) : !chartData || displayChartData.length === 0 ? (
+            <div className="flex items-center justify-center h-[280px] text-center">
+              <div>
+                <p className="text-[15px] font-medium text-[#09090B]">No price trends yet</p>
+                <p className="text-[13px] text-[#71717A] mt-1">Search a product first to see price trends.</p>
+              </div>
+            </div>
           ) : (
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={displayChartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E4E4E7" />
                 <XAxis dataKey="date" stroke="#A1A1AA" tick={{ fontSize: 11 }} />
-                <YAxis stroke="#A1A1AA" tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
+                <YAxis stroke="#A1A1AA" tick={{ fontSize: 11 }} tickFormatter={(v) => `₹${v.toLocaleString('en-IN')}`} />
                 <Tooltip
                   contentStyle={{ background: '#fff', border: '1px solid #E4E4E7', borderRadius: 8, fontSize: 12 }}
-                  formatter={(v) => [`$${v}`, undefined]}
+                  formatter={(v) => [`₹${Number(v).toLocaleString('en-IN')}`, undefined]}
                 />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 {displayChartKeys.map((key) => {
@@ -429,11 +393,6 @@ export default function AIInsightsPage() {
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.4 }}>
         <div className="flex items-center gap-2.5 mb-4">
           <h2 className="text-[16px] font-semibold text-[#09090B]">Negotiation History</h2>
-          {emailsIsDemo && (
-            <span className="text-[11px] font-medium text-[#D97706] bg-[#FEF9C3] px-2 py-0.5 rounded-full">
-              Demo data
-            </span>
-          )}
           {(emailsLoading || authLoading) && (
             <Loader2 size={14} className="text-[#A1A1AA] animate-spin" />
           )}
@@ -443,6 +402,13 @@ export default function AIInsightsPage() {
             <div className="flex items-center justify-center py-12 gap-2 text-[13px] text-[#A1A1AA]">
               <Loader2 size={18} className="animate-spin" />
               Loading negotiation history…
+            </div>
+          ) : displayEmails.length === 0 ? (
+            <div className="flex items-center justify-center py-16 text-center">
+              <div>
+                <p className="text-[15px] font-medium text-[#09090B]">No negotiation emails yet</p>
+                <p className="text-[13px] text-[#71717A] mt-1">Generate one from the Results page.</p>
+              </div>
             </div>
           ) : (
             <div className="divide-y divide-[#E4E4E7]/50">

@@ -200,12 +200,12 @@ export default function UnitEconomicsPage() {
                   </div>
                   <div className="flex flex-col">
                     {(() => {
-                      const { primary, secondary } = dualPrice(row.cogs, getCurrency(row));
+                      const currency = getCurrency(row);
+                      const cogs_in_inr = currency === 'INR' ? row.cogs : row.cogs * USD_TO_INR;
                       return (
-                        <>
-                          <span className="font-mono text-[14px] font-semibold text-[#09090B]">{primary}</span>
-                          {secondary && <span className="font-mono text-[11px] text-[#A1A1AA]">{secondary}</span>}
-                        </>
+                        <span className="font-mono text-[14px] font-semibold text-[#09090B]">
+                          {'₹' + Math.round(cogs_in_inr).toLocaleString('en-IN')}
+                        </span>
                       );
                     })()}
                   </div>
@@ -214,9 +214,9 @@ export default function UnitEconomicsPage() {
                   </span>
                   <div className="flex flex-col">
                     <span className={`font-mono text-[14px] font-semibold ${m ? (m.profitAtQty > 0 ? 'text-[#16A34A]' : 'text-[#DC2626]') : 'text-[#A1A1AA]'}`}>
-                      {m ? `$${m.profitAtQty.toFixed(2)}` : '—'}
+                      {m ? `₹${Math.round(m.profitAtQty * USD_TO_INR).toLocaleString('en-IN')}` : '—'}
                     </span>
-                    {m && <span className="font-mono text-[11px] text-[#A1A1AA]">${m.profitPerUnit.toFixed(2)}/unit</span>}
+                    {m && <span className="font-mono text-[11px] text-[#A1A1AA]">₹{Math.round(m.profitPerUnit * USD_TO_INR).toLocaleString('en-IN')}/unit</span>}
                   </div>
                   <span className="font-mono text-[14px] text-[#09090B]">
                     {m ? (m.breakEven === Infinity ? '∞' : m.breakEven) : '—'}
