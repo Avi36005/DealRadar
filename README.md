@@ -26,6 +26,7 @@ An enterprise-grade, high-performance intelligence platform that aggregates live
 🧠 **Artificial Intelligence & Alerts**
 [![OpenAI GPT-4o](https://img.shields.io/badge/OpenAI_GPT--4o-412991?style=for-the-badge&logo=openai&logoColor=white)](https://openai.com)
 [![Google Gemini](https://img.shields.io/badge/Google_Gemini_Pro-8E75C2?style=for-the-badge&logo=googlegemini&logoColor=white)](https://deepmind.google/technologies/gemini)
+[![Anakin.ai](https://img.shields.io/badge/Powered_by-Anakin.ai-FF6C37?style=for-the-badge&logo=rocket&logoColor=white)](https://anakin.ai)
 [![Resend](https://img.shields.io/badge/Resend-000000?style=for-the-badge&logo=resend&logoColor=white)](https://resend.com)
 
 ---
@@ -33,7 +34,7 @@ An enterprise-grade, high-performance intelligence platform that aggregates live
 ## ✨ Features Implemented
 
 *   **Cinematic Landing Page:** Premium landing page with interactive Framer Motion animations, per-character staggered headings, custom SVG underline draws, and smooth scroll effects.
-*   **Multi-Source Live Scraping:** Single unified product search across 7 major platforms with native currency normalizing (USD/INR conversion) for Indian B2B sources like Flipkart, IndiaMART, and BigBasket alongside standard USD sources (Amazon, Alibaba, Walmart, eBay, Etsy, Wayfair).
+*   **Multi-Source Live Scraping (Anakin Wire):** Single unified product search across 7 major platforms powered by the **Anakin Wire API** with native currency normalizing (USD/INR conversion) for Indian B2B sources like Flipkart, IndiaMART, and BigBasket alongside standard USD sources (Amazon, Alibaba, Walmart, eBay, Etsy, Wayfair).
 *   **Demand Radar (Trend Shock Prediction):** A predictive analytics dashboard highlighting emerging demand spikes, search query volume momentum, viral social media trends, and market risk analysis powered by Google Gemini Pro with OpenAI GPT-4o automatic fallback.
 *   **AI Arbitrage Intelligence (GPT-4o):** Instant multi-dimensional B2B arbitrage evaluations to highlight gaps between supply/demand, margins, and target markets.
 *   **Predictive Pricing (Gemini):** Machine-learning powered price trend predictions with percentage confidence scores.
