@@ -15,6 +15,26 @@ assistant says so instead of guessing.
 
 ---
 
+## Evaluation checklist
+
+A quick map from the assessment's evaluation rubric to where each requirement is
+implemented, for reviewers checking the submission end-to-end.
+
+| Rubric criterion | What's evaluated | Where it's covered |
+|---|---|---|
+| **Parsing** | OCR works across document types; tables extracted as structure, not flat text | `backend/services/parser.py` — pdfplumber for text/tables, `pdf2image` + `pytesseract` OCR for scanned/handwritten/image-heavy pages, tables stored as structured `{headers, rows}` JSON, every page also rendered to a PNG in `storage/page_images/` |
+| **Classification** | JSON schema is sensible; documents classified correctly across multiple dimensions | `backend/services/classifier.py` + `backend/models/schemas.py` — LLM-based `Classification` model covering `document_type`, `topic_domain`, `topic_summary`, `content_characteristics` (tables/images/handwriting/scanned/multi-page/language), `sensitivity_level`, `sensitivity_reason`, `estimated_date`, `key_entities` |
+| **RAG + Citations** | Relevant answers, accurate citations, no hallucination on empty results | `backend/services/rag_agent.py` — query expansion → multi-query retrieval → dedup/rerank → synthesis with strict `[DocumentName, p.N]` citations, with an exact-match refusal sentence when nothing relevant is found |
+| **Data Security** | Security implemented across upload, storage, retrieval, and API layers; README explains decisions | `backend/security.py` — API key auth, MIME/type validation, filename sanitization, per-route rate limiting, CORS allowlist, security headers — see [Security decisions](#security-decisions) below |
+| **UI** | Citations + page thumbnails visible; bulk upload works on a separate page | `frontend/src/app/dashboard/chat/page.tsx` — multi-turn chat with citations, page thumbnails, and a click-to-fullscreen page viewer; `frontend/src/app/dashboard/upload/page.tsx` — multi-file drag-and-drop with per-file pipeline status (queued → parsing → classifying → indexing → ready) |
+| **Code quality** | No secrets in code, clear README, sensible file structure | `.env`/`.env.local` are git-ignored with `.env.example` templates checked in; typed Pydantic models and TypeScript interfaces throughout; routers/services/models separation — see [Project structure](#project-structure) |
+
+**Bonus — Voice input:** live transcript while speaking via the browser's free
+Web Speech API (`frontend/src/app/dashboard/chat/page.tsx`), plus optional spoken
+replies via ElevenLabs TTS (`backend/services/tts.py`, `backend/routers/voice.py`).
+
+---
+
 ## Architecture
 
 ```mermaid

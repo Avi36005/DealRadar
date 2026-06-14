@@ -21,8 +21,8 @@ from services import embedder, llm_client
 
 logger = logging.getLogger(__name__)
 
-RETRIEVAL_TOP_K = 5
-RERANK_TOP_N = 8
+RETRIEVAL_TOP_K = 8
+RERANK_TOP_N = 10
 
 CITATION_PATTERN = re.compile(r"\[([^,\]]+),\s*p\.\s*(\d+)\]")
 
