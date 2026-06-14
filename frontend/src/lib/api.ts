@@ -118,14 +118,55 @@ export async function getAllDocuments(): Promise<DocumentSummary[]> {
   return handle<DocumentSummary[]>(res);
 }
 
-/** Ask a question of the agentic RAG pipeline. */
-export async function askQuestion(question: string, history: Message[]): Promise<ChatResponse> {
+/**
+ * Ask a question of the agentic RAG pipeline. When `documentId` is provided,
+ * retrieval is scoped to that single document.
+ */
+export async function askQuestion(
+  question: string,
+  history: Message[],
+  documentId?: string | null,
+): Promise<ChatResponse> {
   const res = await fetch(`${getApiBase()}/api/chat/ask`, {
     method: 'POST',
     headers: headers(),
-    body: JSON.stringify({ question, conversation_history: history }),
+    body: JSON.stringify({
+      question,
+      conversation_history: history,
+      document_id: documentId ?? null,
+    }),
   });
   return handle<ChatResponse>(res);
+}
+
+export interface TableData {
+  headers: string[];
+  rows: string[][];
+}
+
+export interface DocumentPageContent {
+  page_number: number;
+  extracted_text: string;
+  tables: TableData[];
+  is_scanned: boolean;
+  has_images: boolean;
+}
+
+export interface DocumentContent {
+  document_id: string;
+  name: string;
+  status: string;
+  classification: Classification | null;
+  page_count: number;
+  pages: DocumentPageContent[];
+}
+
+/** Fetch the extracted text + tables + classification for a single document. */
+export async function getDocumentContent(documentId: string): Promise<DocumentContent> {
+  const res = await fetch(`${getApiBase()}/api/documents/${documentId}/content`, {
+    headers: headers(),
+  });
+  return handle<DocumentContent>(res);
 }
 
 /**

@@ -116,6 +116,28 @@ class DocumentSummary(BaseModel):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Extracted content (per-page text + tables, surfaced in the chat UI)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class DocumentPageContent(BaseModel):
+    page_number: int
+    extracted_text: str = ""
+    tables: List[TableData] = Field(default_factory=list)
+    is_scanned: bool = False
+    has_images: bool = False
+
+
+class DocumentContentResponse(BaseModel):
+    document_id: str
+    name: str
+    status: ProcessingStatus
+    classification: Optional[Classification] = None
+    page_count: int = 0
+    pages: List[DocumentPageContent] = Field(default_factory=list)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Chat / RAG
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -128,6 +150,9 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     question: str
     conversation_history: List[ChatMessage] = Field(default_factory=list)
+    # When set, retrieval is scoped to a single document so the user can chat
+    # about a specific file without naming it in the question.
+    document_id: Optional[str] = None
 
 
 class Citation(BaseModel):

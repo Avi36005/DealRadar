@@ -12,5 +12,7 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 @router.post("/ask", response_model=ChatResponse, dependencies=[Depends(verify_api_key)])
 @limiter.limit("30/minute")
 async def ask(request: Request, payload: ChatRequest) -> ChatResponse:
-    result = rag_agent.answer_question(payload.question, payload.conversation_history)
+    result = rag_agent.answer_question(
+        payload.question, payload.conversation_history, payload.document_id
+    )
     return ChatResponse(**result)

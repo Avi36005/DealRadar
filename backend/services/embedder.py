@@ -99,8 +99,11 @@ def is_indexed(document_id: str) -> bool:
     return bool(result.get("ids"))
 
 
-def query(query_texts: List[str], top_k: int = 5) -> dict:
+def query(query_texts: List[str], top_k: int = 5, where: dict | None = None) -> dict:
     """Run a batch of queries against the collection.
+
+    `where` optionally restricts results to chunks whose metadata matches (e.g.
+    ``{"document_id": "..."}``) so a chat can be scoped to a single document.
 
     Returns the raw ChromaDB result dict: each of "ids"/"documents"/"metadatas"/"distances"
     is a list with one entry per input query.
@@ -111,7 +114,10 @@ def query(query_texts: List[str], top_k: int = 5) -> dict:
 
     model = _get_model()
     embeddings = model.encode(query_texts, show_progress_bar=False).tolist()
-    return collection.query(
-        query_embeddings=embeddings,
-        n_results=min(top_k, collection.count()),
-    )
+    query_kwargs: dict = {
+        "query_embeddings": embeddings,
+        "n_results": min(top_k, collection.count()),
+    }
+    if where:
+        query_kwargs["where"] = where
+    return collection.query(**query_kwargs)

@@ -56,9 +56,9 @@ Question: {question}
 Answer:"""
 
 
-def answer_question(question: str, history: List[ChatMessage]) -> dict:
+def answer_question(question: str, history: List[ChatMessage], document_id: str | None = None) -> dict:
     queries = _expand_query(question)
-    chunks = _retrieve(queries)
+    chunks = _retrieve(queries, document_id=document_id)
 
     if not chunks:
         return {"answer": NO_ANSWER_MESSAGE, "citations": [], "sources_found": False}
@@ -97,9 +97,10 @@ def _expand_query(question: str) -> List[str]:
     return queries[:3]
 
 
-def _retrieve(queries: List[str]) -> List[dict]:
+def _retrieve(queries: List[str], document_id: str | None = None) -> List[dict]:
+    where = {"document_id": document_id} if document_id else None
     try:
-        results = embedder.query(queries, top_k=RETRIEVAL_TOP_K)
+        results = embedder.query(queries, top_k=RETRIEVAL_TOP_K, where=where)
     except Exception as exc:
         logger.warning("Retrieval failed: %s", exc)
         return []
