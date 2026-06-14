@@ -384,13 +384,18 @@ never invents a result.
 
 ## Deployment
 
+**Live app:** https://documentiq-app.web.app
+
 - **Frontend → [Firebase Hosting](https://firebase.google.com/products/hosting)**:
-  static export (`output: 'export'`) deployed to the `documentiq-app` site —
-  https://documentiq-app.web.app.
-- **Backend → [Render](https://render.com)**: deploy `backend/Dockerfile` as a
-  Web Service (free tier). Set the environment variables above in the Render
-  dashboard, and set `CORS_ALLOWED_ORIGINS` to include the Firebase Hosting
-  URL above.
-- Once the backend has a public URL, rebuild the frontend with
-  `NEXT_PUBLIC_API_URL` set to it (and `NEXT_PUBLIC_API_KEY` matching
-  `API_SECRET_KEY`), then redeploy to Firebase Hosting.
+  static export (`output: 'export'`) deployed to the `documentiq-app` site.
+- **Backend → [Google Cloud Run](https://cloud.google.com/run)**: `backend/Dockerfile`
+  deployed as a container (free-tier eligible). Secrets (`GROQ_API_KEY`,
+  `GEMINI_API_KEY`, `OPENAI_API_KEY`, `ELEVENLABS_API_KEY`, `API_SECRET_KEY`) are
+  stored in Google Secret Manager and injected at runtime; non-secret config
+  (model names, `CORS_ALLOWED_ORIGINS`, storage paths) is passed as plain env
+  vars. `backend/Dockerfile` already supports Cloud Run's `$PORT` convention.
+  `backend/Dockerfile` deploys equally well to Render — set the same
+  environment variables in the Render dashboard as a drop-in alternative.
+- The frontend's `NEXT_PUBLIC_API_URL` points at the deployed backend's URL
+  (and `NEXT_PUBLIC_API_KEY` matches `API_SECRET_KEY`); rebuild and redeploy
+  to Firebase Hosting after changing either.
