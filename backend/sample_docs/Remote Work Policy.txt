@@ -1,0 +1,60 @@
+REMOTE WORK POLICY
+BFAI Technologies Pvt. Ltd.
+Effective Date: January 1, 2026
+Document Classification: Public
+
+1. PURPOSE
+This policy establishes guidelines for employees who work remotely on a full-time or
+hybrid basis. It is intended to ensure consistency, productivity, and security across
+all remote work arrangements while supporting employee flexibility and wellbeing.
+
+2. ELIGIBILITY
+Remote work arrangements are available to employees whose role does not require
+regular physical presence at a company facility, subject to manager approval. New
+employees typically complete their first 90 days on-site or in a hybrid arrangement
+before transitioning to a fully remote schedule, at the discretion of their manager.
+
+3. WORK HOURS AND AVAILABILITY
+Remote employees are expected to maintain the same core working hours as their team,
+generally between 10:00 AM and 4:00 PM in their local time zone, to support
+collaboration across distributed teams. Employees should keep their calendar status
+up to date and respond to messages within a reasonable timeframe during work hours.
+
+4. EQUIPMENT AND WORKSPACE
+The company provides a laptop, monitor, and necessary peripherals for remote
+employees. Employees are responsible for maintaining a dedicated, ergonomic
+workspace with a stable internet connection of at least 25 Mbps download speed.
+Equipment remains company property and must be returned upon termination of
+employment.
+
+5. COMMUNICATION EXPECTATIONS
+Remote employees must attend scheduled team meetings via video call with cameras on,
+unless otherwise agreed with their manager. Daily standups, sprint planning, and
+retrospectives are considered mandatory unless the employee is on approved leave.
+
+6. SECURITY REQUIREMENTS
+All remote work must be conducted on company-managed devices with full-disk
+encryption, automatic screen lock after 5 minutes of inactivity, and up-to-date
+antivirus software. Employees must connect to internal systems via the company VPN
+and must not use public, unsecured Wi-Fi networks to access confidential systems.
+Sharing login credentials or company devices with family members or others is
+strictly prohibited.
+
+7. PERFORMANCE EXPECTATIONS
+Remote employees are evaluated on the same performance criteria as on-site
+employees, based on deliverables, quality of work, and collaboration, rather than
+hours logged. Managers will conduct regular one-on-one check-ins to discuss
+workload, priorities, and any support needed.
+
+8. EXPENSES AND REIMBURSEMENT
+Employees may submit monthly reimbursement requests of up to $50 for internet
+connectivity costs, subject to finance team approval. Additional equipment
+requests beyond the standard kit require manager and IT approval.
+
+9. POLICY REVIEW
+This policy will be reviewed annually by the People Operations team and may be
+updated to reflect changes in business needs, labor regulations, or company
+strategy. Employees will be notified of material changes at least 30 days before
+they take effect.
+
+For questions about this policy, contact people-ops@bfai.example.com.

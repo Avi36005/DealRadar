@@ -46,3 +46,18 @@ coverage/
 # Misc
 *.tgz
 *.tar.gz
+
+# Python
+__pycache__/
+**/__pycache__/
+*.pyc
+backend/venv/
+backend/.venv/
+
+# Backend runtime storage (regenerated on startup / first run)
+backend/storage/uploads/*
+backend/storage/page_images/*
+backend/storage/parsed/*
+backend/storage/vector_db/*
+backend/storage/documents.json
+!backend/storage/**/.gitkeep

@@ -1,3 +1,9 @@
-node_modules
+venv/
+__pycache__/
+*.pyc
 .env
-npm-debug.log
+storage/uploads/*
+storage/page_images/*
+storage/parsed/*
+storage/vector_db/*
+storage/documents.json

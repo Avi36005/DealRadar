@@ -1,0 +1,12 @@
+{
+  "hosting": {
+    "site": "documentiq-app",
+    "public": "out",
+    "cleanUrls": true,
+    "trailingSlash": false,
+    "ignore": [
+      "firebase.json",
+      "**/.*"
+    ]
+  }
+}
